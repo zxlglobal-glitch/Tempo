@@ -1,0 +1,22 @@
+// Reads existing rows only; no INSERT, UPDATE, DELETE, RPC or Storage writes.
+import { createRequire, stripTypeScriptTypes } from 'node:module';
+import { readFile } from 'node:fs/promises';
+import { createClient } from '@supabase/supabase-js';
+import assert from 'node:assert/strict';
+const require = createRequire(import.meta.url);
+createRequire(require.resolve('next/package.json'))('@next/env').loadEnvConfig(process.cwd());
+const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, { auth: { persistSession: false } });
+const source = await readFile(new URL('../src/lib/workout-feed.ts', import.meta.url), 'utf8');
+const { loadWorkoutFeed, WORKOUT_WITH_AUTHOR } = await import(`data:text/javascript;base64,${Buffer.from(stripTypeScriptTypes(source)).toString('base64')}`);
+const joined = await db.from('workouts').select(WORKOUT_WITH_AUTHOR).limit(1);
+assert.notEqual(joined.error?.code, 'PGRST201', 'Explicit relation must resolve without ambiguity');
+console.log('Explicit FK resolves; public profile access status:', joined.status);
+const feed = await loadWorkoutFeed(db, { includeProfiles: false, limit: 20 });
+for (const photoCount of [1, 2]) assert.ok(feed.workouts.some(row => row.photos.length === photoCount), `Expected existing ${photoCount}-photo workout`);
+const latest = feed.workouts[0];
+const profile = await loadWorkoutFeed(db, { includeProfiles: false, profileId: latest.user_id, category: 'Все', limit: 20 });
+assert.ok(profile.workouts.some(row => row.id === latest.id));
+assert.ok(profile.workouts.every(row => row.user_id === latest.user_id));
+const fallback = await loadWorkoutFeed(db, { includeProfiles: true, limit: 20 });
+assert.ok(fallback.workouts.some(row => row.id === latest.id));
+console.log('PASS: existing one-photo and new two-photo workouts in feed and profile; author-access fallback retains both.');

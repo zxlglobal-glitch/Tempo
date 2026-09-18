@@ -1,0 +1,18 @@
+﻿import { createRequire } from 'node:module';
+import { createClient } from '@supabase/supabase-js';
+import assert from 'node:assert/strict';
+const require = createRequire(import.meta.url);
+createRequire(require.resolve('next/package.json'))('@next/env').loadEnvConfig(process.cwd());
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+assert.ok(url && key, 'Configure .env.local');
+const client = createClient(url, key, { auth: { persistSession: false } });
+const { error, status } = await client.from('workouts').select('id, title, category, duration, photos').order('created_at', { ascending: false }).limit(1);
+assert.equal(error, null, error?.message);
+console.log(`PASS: public workout feed HTTP ${status}`);
+const response = await fetch(`${url}/auth/v1/settings`, { headers: { apikey: key } });
+assert.equal(response.status, 200);
+const settings = await response.json();
+assert.equal(settings.external.email, true);
+console.log(`PASS: email auth enabled; confirmation required: ${!settings.mailer_autoconfirm}`);
+console.log('Read-only checks only. No accounts, profiles, workouts or files created.');

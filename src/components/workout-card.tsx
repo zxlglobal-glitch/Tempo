@@ -1,0 +1,108 @@
+'use client';
+
+import Link from 'next/link';
+import { useEffect, useRef, useState } from 'react';
+import { supabase, photoUrl, displayName, type Workout } from '@/lib/supabase';
+import { deleteWorkoutAndPhotos } from '@/lib/workout-mutations';
+import { errorMessage, socialError } from '@/lib/social';
+import ProfileAvatar from './profile-avatar';
+import WorkoutComments from './workout-comments';
+
+export default function WorkoutCard({ workout, userId, detail = false, onDeleted }: {
+  workout: Workout; userId?: string; detail?: boolean; onDeleted: (notice: string) => void;
+}) {
+  const [counts, setCounts] = useState<{ likes: number; comments: number; liked: boolean } | null>(null);
+  const [revision, setRevision] = useState(0);
+  const [socialMessage, setSocialMessage] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const locked = useRef(false);
+  const owner = Boolean(userId && workout.user_id === userId);
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      if (!supabase) return;
+      const [likes, comments, own] = await Promise.all([
+        supabase.from('workout_likes').select('*', { count: 'exact', head: true }).eq('workout_id', workout.id),
+        supabase.from('workout_comments').select('*', { count: 'exact', head: true }).eq('workout_id', workout.id),
+        userId ? supabase.from('workout_likes').select('user_id').eq('workout_id', workout.id).eq('user_id', userId).maybeSingle() : Promise.resolve({ data: null, error: null }),
+      ]);
+      if (!active) return;
+      const issue = likes.error || comments.error || own.error;
+      if (issue) { setCounts(null); setSocialMessage(socialError(issue)); return; }
+      // A failed HEAD response can lack a JSON error body. Never show a fake zero.
+      if (likes.status >= 400 || comments.status >= 400 || likes.count === null || comments.count === null) {
+        setCounts(null);
+        setSocialMessage('Счётчики недоступны. Проверьте подключение и применение миграции лайков и комментариев.');
+        return;
+      }
+      setCounts({ likes: likes.count, comments: comments.count, liked: Boolean(own.data) });
+      setSocialMessage('');
+    }
+    void load().catch(error => { if (active) setSocialMessage(errorMessage(error)); });
+    return () => { active = false; };
+  }, [workout.id, userId, revision]);
+
+  async function toggleLike() {
+    if (!supabase || !userId || !counts || locked.current) return;
+    locked.current = true; setBusy(true); setError('');
+    try {
+      const result = counts.liked
+        ? await supabase.from('workout_likes').delete().eq('workout_id', workout.id).eq('user_id', userId)
+        : await supabase.from('workout_likes').insert({ workout_id: workout.id, user_id: userId });
+      // Another tab may already have inserted this like. Refresh actual state.
+      if (result.error && result.error.code !== '23505') throw result.error;
+      setRevision(value => value + 1);
+    } catch (error) { setError(socialError(error)); }
+    finally { locked.current = false; setBusy(false); }
+  }
+
+  async function remove() {
+    if (!supabase || !owner || locked.current) return;
+    if (!window.confirm(`Удалить тренировку «${workout.title}» и её фотографии? Это действие нельзя отменить.`)) return;
+    locked.current = true; setBusy(true); setError('');
+    const db = supabase;
+    try {
+      const notice = await deleteWorkoutAndPhotos({
+        deleteRow: async () => {
+          const { data, error } = await db.from('workouts').delete().eq('id', workout.id).eq('user_id', userId!).select('photos').single();
+          if (error) throw error;
+          return data.photos as string[];
+        },
+        remove: async paths => {
+          const { error } = await db.storage.from('photos').remove(paths);
+          if (error) throw error;
+        },
+      });
+      onDeleted(notice || 'Тренировка удалена.');
+    } catch (error) { setError(errorMessage(error)); }
+    finally { locked.current = false; setBusy(false); }
+  }
+
+  return <article className={`card workout ${detail ? 'workout-detail' : ''}`}>
+    <div className="workout-top">
+      <Link className="author" href={`/people/${workout.user_id}`}><ProfileAvatar profile={workout.profiles} /><div>
+        <strong>{displayName(workout.profiles)}</strong>
+        <small>{workout.profiles?.city}{workout.profiles?.city ? ' · ' : ''}{new Date(workout.created_at).toLocaleString('ru-RU')}</small>
+      </div></Link><span className="pill">{workout.category}</span>
+    </div>
+    {detail ? <h1>{workout.title}</h1> : <h2><Link href={`/workouts/${workout.id}`}>{workout.title}</Link></h2>}
+    <p className="bio">{workout.body}</p>
+    {workout.photos.length > 0 && <div className="gallery">{workout.photos.map((path, index) => <a key={path} href={detail ? photoUrl(path) : `/workouts/${workout.id}`} target={detail ? '_blank' : undefined} rel={detail ? 'noreferrer' : undefined}>
+      <img src={photoUrl(path)} alt={`Фото тренировки «${workout.title}», ${index + 1}`} loading="lazy" />
+    </a>)}</div>}
+    <footer><span className="duration">◷ {workout.duration} мин</span>
+      {!detail && <Link href={`/workouts/${workout.id}`}>Открыть тренировку →</Link>}
+    </footer>
+    <div className="workout-actions">
+      {userId ? <button className={`reaction ${counts?.liked ? 'liked' : ''}`} aria-pressed={counts?.liked ?? false} disabled={busy || !counts} onClick={() => void toggleLike()}>
+        {counts?.liked ? '♥' : '♡'} {counts?.likes ?? '—'} <span>Нравится</span>
+      </button> : <Link className="reaction" href="/login">♡ {counts?.likes ?? '—'} Нравится</Link>}
+      <Link className="reaction" href={`/workouts/${workout.id}#comments`}>Комментарии: {counts?.comments ?? '—'}</Link>
+      {owner && <><Link className="reaction" href={`/workouts/${workout.id}/edit`}>Редактировать</Link><button className="reaction danger" disabled={busy} onClick={() => void remove()}>Удалить</button></>}
+    </div>
+    {error && <p className="notice" role="alert">{error}</p>}
+    {socialMessage && <p className="social-notice">{socialMessage}</p>}
+    {detail && <WorkoutComments workoutId={workout.id} userId={userId} onChange={() => setRevision(value => value + 1)} />}
+  </article>;
+}
