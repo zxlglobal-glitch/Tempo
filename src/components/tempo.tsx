@@ -60,12 +60,13 @@ export default function Tempo() {
   useEffect(() => {
     if (!supabase || !user) { setUnreadNotifications(0); return; }
     const db = supabase;
+    const currentUserId = user.id;
     let active = true;
     async function loadUnread() {
       const { count, error } = await db
         .from('notifications')
         .select('*', { count: 'exact', head: true })
-        .eq('recipient_id', user.id)
+        .eq('recipient_id', currentUserId)
         .is('read_at', null);
       if (!error && active) setUnreadNotifications(count ?? 0);
     }
