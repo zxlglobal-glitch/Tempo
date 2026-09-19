@@ -140,7 +140,7 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
     {showLikers && <div className="likers-panel">
       <div className="likers-heading"><strong>Понравилось</strong><button type="button" className="text-button" onClick={() => setShowLikers(false)}>Закрыть</button></div>
       {likersLoading ? <p className="muted">Загружаем список…</p> : likersError ? <p className="notice" role="alert">{likersError}</p> : likers.length ? <div className="likers-list">{likers.map(person => <Link key={person.id} className="liker-row" href={`/people/${person.id}`}><ProfileAvatar profile={person}/><div><strong>{displayName(person)}</strong><small>{person.city || 'Город не указан'}</small></div><span>→</span></Link>)}</div> : <p className="muted">Пока никто не поставил лайк.</p>}
-    </div>
+    </div>}
     {error && <p className="notice" role="alert">{error}</p>}
     {socialMessage && <p className="social-notice">{socialMessage}</p>}
     {detail && <WorkoutComments workoutId={workout.id} userId={userId} onChange={() => setRevision(value => value + 1)} />}
