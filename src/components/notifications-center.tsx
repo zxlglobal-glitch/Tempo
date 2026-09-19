@@ -42,6 +42,7 @@ export default function NotificationsCenter({ userId, onUnreadChange }: { userId
   useEffect(() => {
     if (!supabase || !userId) { setLoading(false); return; }
     const db = supabase;
+    const currentUserId = userId;
     let active = true;
     async function load() {
       setLoading(true); setError('');
@@ -49,7 +50,7 @@ export default function NotificationsCenter({ userId, onUnreadChange }: { userId
         const { data, error } = await db
           .from('notifications')
           .select('id, actor_id, type, workout_id, comment_id, created_at, read_at')
-          .eq('recipient_id', userId)
+          .eq('recipient_id', currentUserId)
           .order('created_at', { ascending: false })
           .limit(80);
         if (error) throw error;
