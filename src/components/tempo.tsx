@@ -77,14 +77,16 @@ export default function Tempo() {
 
   useEffect(() => {
     if (!supabase || !profileId || !user || !profile) { setFollowStats(null); return; }
+    const db = supabase;
+    const targetProfileId = profileId;
+    const currentUserId = user.id;
     let active = true;
     async function loadFollowStats() {
-      const db = supabase!;
       const [followers, following, own] = await Promise.all([
-        db.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', profileId),
-        db.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profileId),
-        user.id !== profileId
-          ? db.from('follows').select('follower_id').eq('follower_id', user.id).eq('following_id', profileId).maybeSingle()
+        db.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', targetProfileId),
+        db.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', targetProfileId),
+        currentUserId !== targetProfileId
+          ? db.from('follows').select('follower_id').eq('follower_id', currentUserId).eq('following_id', targetProfileId).maybeSingle()
           : Promise.resolve({ data: null, error: null }),
       ]);
       const issue = followers.error || following.error || own.error;
