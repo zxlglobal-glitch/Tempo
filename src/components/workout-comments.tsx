@@ -6,7 +6,7 @@ import { supabase, displayName, type Profile } from '@/lib/supabase';
 import { errorMessage, socialError } from '@/lib/social';
 import ProfileAvatar from './profile-avatar';
 
-type Comment = { id: string; user_id: string; body: string; created_at: string; profiles: Profile | null };
+type Comment = { id: string; user_id: string; body: string; created_at: string; profiles: Profile | null; likes: number; liked: boolean };
 
 export default function WorkoutComments({ workoutId, userId, onChange }: {
   workoutId: string; userId?: string; onChange: () => void;
@@ -32,7 +32,20 @@ export default function WorkoutComments({ workoutId, userId, onChange }: {
       if (!active) return;
       setLoading(false);
       if (result.error) { setError(socialError(result.error)); setAvailable(false); return; }
-      setComments((result.data ?? []).map(row => ({ ...row, profiles: row.profiles ?? null })));
+      const rows = (result.data ?? []).map(row => ({ ...row, profiles: row.profiles ?? null }));
+      let likeRows: { comment_id: string; user_id: string }[] = [];
+      if (rows.length) {
+        const likes = await supabase.from('comment_likes').select('comment_id, user_id').in('comment_id', rows.map(row => row.id));
+        if (likes.error) { setError(socialError(likes.error)); setAvailable(false); return; }
+        likeRows = likes.data ?? [];
+      }
+      const likeCounts = new Map<string, number>();
+      const likedByUser = new Set<string>();
+      for (const like of likeRows) {
+        likeCounts.set(like.comment_id, (likeCounts.get(like.comment_id) ?? 0) + 1);
+        if (userId && like.user_id === userId) likedByUser.add(like.comment_id);
+      }
+      setComments(rows.map(row => ({ ...row, likes: likeCounts.get(row.id) ?? 0, liked: likedByUser.has(row.id) })));
       setAvailable(true); setError('');
     }
     void load().catch(error => { if (active) { setError(errorMessage(error)); setLoading(false); } });
@@ -48,6 +61,19 @@ export default function WorkoutComments({ workoutId, userId, onChange }: {
       const { error } = await supabase.from('workout_comments').insert({ workout_id: workoutId, user_id: userId, body: text });
       if (error) throw error;
       setBody(''); setRevision(value => value + 1); onChange();
+    } catch (error) { setError(socialError(error)); }
+    finally { locked.current = false; setBusy(false); }
+  }
+
+  async function toggleLike(comment: Comment) {
+    if (!supabase || !userId || locked.current) return;
+    locked.current = true; setBusy(true); setError('');
+    try {
+      const result = comment.liked
+        ? await supabase.from('comment_likes').delete().eq('comment_id', comment.id).eq('user_id', userId)
+        : await supabase.from('comment_likes').insert({ comment_id: comment.id, user_id: userId });
+      if (result.error && result.error.code !== '23505') throw result.error;
+      setRevision(value => value + 1);
     } catch (error) { setError(socialError(error)); }
     finally { locked.current = false; setBusy(false); }
   }
@@ -74,7 +100,10 @@ export default function WorkoutComments({ workoutId, userId, onChange }: {
         <div><strong>{displayName(comment.profiles)}</strong><small>{new Date(comment.created_at).toLocaleString('ru-RU')}</small></div>
       </Link>
       <p className="bio">{comment.body}</p>
-      {comment.user_id === userId && <button className="text-button danger" disabled={busy} onClick={() => void remove(comment)}>Удалить комментарий</button>}
+      <div className="comment-actions">
+        {userId ? <button className={`reaction ${comment.liked ? 'liked' : ''}`} aria-pressed={comment.liked} disabled={busy} onClick={() => void toggleLike(comment)}>{comment.liked ? '♥' : '♡'} {comment.likes}</button> : <Link className="reaction" href="/login">♡ {comment.likes}</Link>}
+        {comment.user_id === userId && <button className="text-button danger" disabled={busy} onClick={() => void remove(comment)}>Удалить комментарий</button>}
+      </div>
     </article>)}
     {available && comments.length >= limit && <button className="text-button" onClick={() => setLimit(value => value + 50)}>Показать ещё комментарии</button>}
     {userId ? <form onSubmit={submit}>
