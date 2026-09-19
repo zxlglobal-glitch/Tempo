@@ -18,6 +18,7 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
   const [busy, setBusy] = useState(false);
   const [showLikers, setShowLikers] = useState(false);
   const [likers, setLikers] = useState<Profile[]>([]);
+  const [likerPreview, setLikerPreview] = useState<Profile[]>([]);
   const [likersLoading, setLikersLoading] = useState(false);
   const [likersError, setLikersError] = useState('');
   const locked = useRef(false);
@@ -46,6 +47,33 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
     void load().catch(error => { if (active) setSocialMessage(errorMessage(error)); });
     return () => { active = false; };
   }, [workout.id, userId, revision]);
+
+  useEffect(() => {
+    if (!supabase || !counts?.likes) { setLikerPreview([]); return; }
+    let active = true;
+    const db = supabase;
+    async function loadPreview() {
+      const { data: likes, error: likesError } = await db
+        .from('workout_likes')
+        .select('user_id, created_at')
+        .eq('workout_id', workout.id)
+        .order('created_at', { ascending: false })
+        .limit(3);
+      if (likesError) throw likesError;
+      const ids = (likes ?? []).map(row => row.user_id);
+      if (!ids.length) { if (active) setLikerPreview([]); return; }
+      const { data: profiles, error: profilesError } = await db
+        .from('profiles')
+        .select(profileFields)
+        .in('id', ids)
+        .returns<Profile[]>();
+      if (profilesError) throw profilesError;
+      const byId = new Map((profiles ?? []).map(person => [person.id, person]));
+      if (active) setLikerPreview(ids.map(id => byId.get(id)).filter((person): person is Profile => Boolean(person)));
+    }
+    void loadPreview().catch(() => { if (active) setLikerPreview([]); });
+    return () => { active = false; };
+  }, [workout.id, counts?.likes, revision]);
 
   async function toggleLike() {
     if (!supabase || !userId || !counts || locked.current) return;
@@ -128,12 +156,17 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
       {!detail && <Link href={`/workouts/${workout.id}`}>Открыть тренировку →</Link>}
     </footer>
     <div className="workout-actions">
-      {userId ? <button className={`reaction ${counts?.liked ? 'liked' : ''}`} aria-pressed={counts?.liked ?? false} disabled={busy || !counts} onClick={() => void toggleLike()}>
-        {counts?.liked ? '♥' : '♡'} <span>Нравится</span>
-      </button> : <Link className="reaction" href="/login">♡ Нравится</Link>}
-      <button className="reaction like-count-button" type="button" disabled={!counts} onClick={() => void toggleLikers()}>
-        {counts?.likes ?? '—'} {counts?.likes === 1 ? 'лайк' : counts?.likes && counts.likes >= 2 && counts.likes <= 4 ? 'лайка' : 'лайков'}
-      </button>
+      <div className="like-cluster">
+        {userId ? <button className={`reaction ${counts?.liked ? 'liked' : ''}`} aria-pressed={counts?.liked ?? false} disabled={busy || !counts} onClick={() => void toggleLike()}>
+          {counts?.liked ? '♥' : '♡'} <span>Нравится</span>
+        </button> : <Link className="reaction" href="/login">♡ Нравится</Link>}
+        <button className="like-summary" type="button" disabled={!counts || !counts.likes} onClick={() => void toggleLikers()} aria-label="Показать, кому понравилась тренировка">
+          <span className="like-avatars" aria-hidden="true">
+            {likerPreview.map(person => <span className="like-avatar-wrap" key={person.id}><ProfileAvatar profile={person}/></span>)}
+          </span>
+          <span className="like-summary-text">{counts?.likes ?? '—'} {counts?.likes === 1 ? 'лайк' : counts?.likes && counts.likes >= 2 && counts.likes <= 4 ? 'лайка' : 'лайков'}</span>
+        </button>
+      </div>
       <Link className="reaction" href={`/workouts/${workout.id}#comments`}>Комментарии: {counts?.comments ?? '—'}</Link>
       {owner && <><Link className="reaction" href={`/workouts/${workout.id}/edit`}>Редактировать</Link><button className="reaction danger" disabled={busy} onClick={() => void remove()}>Удалить</button></>}
     </div>
