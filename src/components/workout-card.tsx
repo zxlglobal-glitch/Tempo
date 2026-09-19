@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { supabase, photoUrl, displayName, type Workout } from '@/lib/supabase';
+import { supabase, photoUrl, displayName, profileFields, type Profile, type Workout } from '@/lib/supabase';
 import { deleteWorkoutAndPhotos } from '@/lib/workout-mutations';
 import { errorMessage, socialError } from '@/lib/social';
 import ProfileAvatar from './profile-avatar';
@@ -16,6 +16,10 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
   const [socialMessage, setSocialMessage] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [showLikers, setShowLikers] = useState(false);
+  const [likers, setLikers] = useState<Profile[]>([]);
+  const [likersLoading, setLikersLoading] = useState(false);
+  const [likersError, setLikersError] = useState('');
   const locked = useRef(false);
   const owner = Boolean(userId && workout.user_id === userId);
   useEffect(() => {
@@ -57,6 +61,35 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
     finally { locked.current = false; setBusy(false); }
   }
 
+  async function toggleLikers() {
+    const next = !showLikers;
+    setShowLikers(next);
+    if (!next || !supabase || likersLoading) return;
+    setLikersLoading(true); setLikersError('');
+    try {
+      const { data: likes, error: likesError } = await supabase
+        .from('workout_likes')
+        .select('user_id, created_at')
+        .eq('workout_id', workout.id)
+        .order('created_at', { ascending: false });
+      if (likesError) throw likesError;
+      const ids = (likes ?? []).map(row => row.user_id);
+      if (!ids.length) { setLikers([]); return; }
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select(profileFields)
+        .in('id', ids)
+        .returns<Profile[]>();
+      if (profilesError) throw profilesError;
+      const byId = new Map((profiles ?? []).map(person => [person.id, person]));
+      setLikers(ids.map(id => byId.get(id)).filter((person): person is Profile => Boolean(person)));
+    } catch (error) {
+      setLikersError(socialError(error));
+    } finally {
+      setLikersLoading(false);
+    }
+  }
+
   async function remove() {
     if (!supabase || !owner || locked.current) return;
     if (!window.confirm(`Удалить тренировку «${workout.title}» и её фотографии? Это действие нельзя отменить.`)) return;
@@ -96,10 +129,17 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
     </footer>
     <div className="workout-actions">
       {userId ? <button className={`reaction ${counts?.liked ? 'liked' : ''}`} aria-pressed={counts?.liked ?? false} disabled={busy || !counts} onClick={() => void toggleLike()}>
-        {counts?.liked ? '♥' : '♡'} {counts?.likes ?? '—'} <span>Нравится</span>
-      </button> : <Link className="reaction" href="/login">♡ {counts?.likes ?? '—'} Нравится</Link>}
+        {counts?.liked ? '♥' : '♡'} <span>Нравится</span>
+      </button> : <Link className="reaction" href="/login">♡ Нравится</Link>}
+      <button className="reaction like-count-button" type="button" disabled={!counts} onClick={() => void toggleLikers()}>
+        {counts?.likes ?? '—'} {counts?.likes === 1 ? 'лайк' : counts?.likes && counts.likes >= 2 && counts.likes <= 4 ? 'лайка' : 'лайков'}
+      </button>
       <Link className="reaction" href={`/workouts/${workout.id}#comments`}>Комментарии: {counts?.comments ?? '—'}</Link>
       {owner && <><Link className="reaction" href={`/workouts/${workout.id}/edit`}>Редактировать</Link><button className="reaction danger" disabled={busy} onClick={() => void remove()}>Удалить</button></>}
+    </div>
+    {showLikers && <div className="likers-panel">
+      <div className="likers-heading"><strong>Понравилось</strong><button type="button" className="text-button" onClick={() => setShowLikers(false)}>Закрыть</button></div>
+      {likersLoading ? <p className="muted">Загружаем список…</p> : likersError ? <p className="notice" role="alert">{likersError}</p> : likers.length ? <div className="likers-list">{likers.map(person => <Link key={person.id} className="liker-row" href={`/people/${person.id}`}><ProfileAvatar profile={person}/><div><strong>{displayName(person)}</strong><small>{person.city || 'Город не указан'}</small></div><span>→</span></Link>)}</div> : <p className="muted">Пока никто не поставил лайк.</p>}
     </div>
     {error && <p className="notice" role="alert">{error}</p>}
     {socialMessage && <p className="social-notice">{socialMessage}</p>}
