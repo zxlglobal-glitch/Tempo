@@ -6,3 +6,15 @@
 
 .profile-social a{display:inline-flex;align-items:baseline;gap:4px;color:var(--muted);transition:opacity .15s ease}.profile-social a:hover{opacity:.7}.follow-list-section{margin-top:28px}.follow-list-heading{display:flex;justify-content:space-between;align-items:end;margin-bottom:18px}.follow-list{display:grid;gap:10px}.follow-person{display:flex;align-items:center;gap:14px;padding:16px 18px}.follow-person .avatar{width:48px;height:48px}.follow-person div{min-width:0;flex:1}.follow-person strong{display:block;font-size:14px}.follow-person small{display:block;color:var(--muted);font-size:11px;margin-top:5px}.follow-person>span{font-size:11px;color:var(--green)}@media(max-width:700px){.profile-social{gap:12px}.follow-person{padding:14px}.follow-person>span{display:none}}
 .nav-icon{display:inline-flex;width:18px;height:18px;flex:0 0 18px;align-items:center;justify-content:center}.nav-icon svg{width:18px;height:18px;display:block}@media(max-width:700px){nav a{min-width:40px;justify-content:center}.nav-icon{width:22px;height:22px;flex-basis:22px}.nav-icon svg{width:22px;height:22px}}
+
+.like-count-button{font-weight:600}
+.likers-panel{margin-top:10px;border-top:1px solid var(--line);padding-top:12px}
+.likers-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.likers-list{display:grid;gap:6px}
+.liker-row{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:14px}
+.liker-row:hover{background:rgba(0,0,0,.035)}
+.liker-row .avatar{width:36px;height:36px}
+.liker-row div{min-width:0;flex:1}
+.liker-row strong{display:block;font-size:13px}
+.liker-row small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.liker-row>span{color:var(--green)}
