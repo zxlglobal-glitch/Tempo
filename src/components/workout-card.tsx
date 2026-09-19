@@ -21,6 +21,7 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
   const [likerPreview, setLikerPreview] = useState<Profile[]>([]);
   const [likersLoading, setLikersLoading] = useState(false);
   const [likersError, setLikersError] = useState('');
+  const [photoIndex, setPhotoIndex] = useState<number | null>(null);
   const locked = useRef(false);
   const owner = Boolean(userId && workout.user_id === userId);
   useEffect(() => {
@@ -47,6 +48,21 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
     void load().catch(error => { if (active) setSocialMessage(errorMessage(error)); });
     return () => { active = false; };
   }, [workout.id, userId, revision]);
+
+  useEffect(() => {
+    if (photoIndex === null) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPhotoIndex(null);
+      if (event.key === 'ArrowLeft' && workout.photos.length > 1) setPhotoIndex(index => index === null ? null : (index - 1 + workout.photos.length) % workout.photos.length);
+      if (event.key === 'ArrowRight' && workout.photos.length > 1) setPhotoIndex(index => index === null ? null : (index + 1) % workout.photos.length);
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [photoIndex, workout.photos.length]);
 
   useEffect(() => {
     if (!supabase || !counts?.likes) { setLikerPreview([]); return; }
@@ -149,9 +165,18 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
     </div>
     {detail ? <h1>{workout.title}</h1> : <h2><Link href={`/workouts/${workout.id}`}>{workout.title}</Link></h2>}
     <p className="bio">{workout.body}</p>
-    {workout.photos.length > 0 && <div className="gallery">{workout.photos.map((path, index) => <a key={path} href={detail ? photoUrl(path) : `/workouts/${workout.id}`} target={detail ? '_blank' : undefined} rel={detail ? 'noreferrer' : undefined}>
+    {workout.photos.length > 0 && <div className="gallery">{workout.photos.map((path, index) => <button type="button" className="gallery-item" key={path} onClick={() => setPhotoIndex(index)} aria-label={`Открыть фото ${index + 1} из ${workout.photos.length}`}>
       <img src={photoUrl(path)} alt={`Фото тренировки «${workout.title}», ${index + 1}`} loading="lazy" />
-    </a>)}</div>}
+    </button>)}</div>}
+    {photoIndex !== null && workout.photos[photoIndex] && <div className="photo-lightbox" role="dialog" aria-modal="true" aria-label="Просмотр фото" onClick={() => setPhotoIndex(null)}>
+      <button type="button" className="photo-lightbox-close" aria-label="Закрыть фото" onClick={() => setPhotoIndex(null)}>×</button>
+      {workout.photos.length > 1 && <button type="button" className="photo-lightbox-nav photo-lightbox-prev" aria-label="Предыдущее фото" onClick={event => { event.stopPropagation(); setPhotoIndex(index => index === null ? null : (index - 1 + workout.photos.length) % workout.photos.length); }}>‹</button>}
+      <div className="photo-lightbox-content" onClick={event => event.stopPropagation()}>
+        <img src={photoUrl(workout.photos[photoIndex])} alt={`Фото тренировки «${workout.title}», ${photoIndex + 1}`} />
+        {workout.photos.length > 1 && <span className="photo-lightbox-counter">{photoIndex + 1} / {workout.photos.length}</span>}
+      </div>
+      {workout.photos.length > 1 && <button type="button" className="photo-lightbox-nav photo-lightbox-next" aria-label="Следующее фото" onClick={event => { event.stopPropagation(); setPhotoIndex(index => index === null ? null : (index + 1) % workout.photos.length); }}>›</button>}
+    </div>}
     <footer><span className="duration">◷ {workout.duration} мин</span>
       {!detail && <Link href={`/workouts/${workout.id}`}>Открыть тренировку →</Link>}
     </footer>
