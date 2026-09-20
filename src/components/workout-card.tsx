@@ -25,7 +25,6 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
   const [reactions, setReactions] = useState<Record<string, number>>({});
   const [ownReaction, setOwnReaction] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const [hiddenLocal, setHiddenLocal] = useState(false);
   const [pinned, setPinned] = useState(false);
   const locked = useRef(false);
   const owner = Boolean(userId && workout.user_id === userId);
@@ -163,13 +162,6 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
     finally { setBusy(false); }
   }
 
-  async function hideWorkout() {
-    if (!supabase || !userId || owner) return;
-    const { error } = await supabase.from('hidden_workouts').upsert({ workout_id: workout.id, user_id: userId });
-    if (error) { setError(socialError(error)); return; }
-    setHiddenLocal(true);
-  }
-
   async function togglePin() {
     if (!supabase || !userId || !owner || busy) return;
     setBusy(true);
@@ -232,7 +224,6 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
     finally { locked.current = false; setBusy(false); }
   }
 
-  if (hiddenLocal) return null;
   return <article className={`card workout ${detail ? 'workout-detail' : ''}`}>
     <div className="workout-top">
       <Link className="author" href={`/people/${workout.user_id}`}><ProfileAvatar profile={workout.profiles} /><div>
@@ -263,8 +254,18 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
         {(['❤️','🔥','💪','👏'] as const).map(reaction => <button key={reaction} type="button" className={`reaction reaction-emoji ${ownReaction === reaction ? 'liked' : ''}`} disabled={!userId || busy} onClick={() => void setReaction(reaction)}>{reaction}{(reactions[reaction] ?? 0) > 0 && <b>{reactions[reaction]}</b>}</button>)}
       </div>
       <Link className="reaction" href={`/workouts/${workout.id}#comments`}>Комментарии: {counts?.comments ?? '—'}</Link>
-      {userId && <button className={`reaction ${saved ? 'liked' : ''}`} type="button" onClick={() => void toggleSave()}>{saved ? '🔖 Сохранено' : '🔖 Сохранить'}</button>}
-      {userId && !owner && <button className="reaction" type="button" onClick={() => void hideWorkout()}>Скрыть</button>}
+      {userId && <button
+        className={`icon-action save-action ${saved ? 'saved' : ''}`}
+        type="button"
+        aria-pressed={saved}
+        aria-label={saved ? 'Убрать из сохранённых' : 'Сохранить тренировку'}
+        title={saved ? 'Убрать из сохранённых' : 'Сохранить тренировку'}
+        onClick={() => void toggleSave()}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21l-6-4-6 4V4.5Z"/>
+        </svg>
+      </button>}
       {owner && <><button className={`reaction ${pinned ? 'liked' : ''}`} type="button" onClick={() => void togglePin()}>{pinned ? '📌 Закреплено' : '📌 Закрепить'}</button><Link className="reaction" href={`/workouts/${workout.id}/edit`}>Редактировать</Link><button className="reaction danger" disabled={busy} onClick={() => void remove()}>Удалить</button></>}
     </div>
     {showLikers && <div className="likers-panel">
