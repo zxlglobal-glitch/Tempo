@@ -33,7 +33,7 @@ export function validateWorkoutMedia(file: File) {
   const imageTypes = ['image/jpeg','image/png','image/webp'];
   const videoTypes = ['video/mp4','video/webm','video/quicktime'];
   if (imageTypes.includes(file.type)) {
-    if (file.size === 0 || file.size > 5 * 1024 * 1024) throw new Error('Фото должно быть JPG, PNG или WebP до 5 МБ.');
+    if (file.size === 0 || file.size > 10 * 1024 * 1024) throw new Error('Фото должно быть JPG, PNG или WebP до 10 МБ.');
     return;
   }
   if (videoTypes.includes(file.type)) {
