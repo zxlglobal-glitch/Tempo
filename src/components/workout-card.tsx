@@ -218,9 +218,9 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
     try {
       const notice = await deleteWorkoutAndPhotos({
         deleteRow: async () => {
-          const { data, error } = await db.from('workouts').delete().eq('id', workout.id).eq('user_id', userId!).select('photos').single();
+          const { data, error } = await db.from('workouts').delete().eq('id', workout.id).eq('user_id', userId!).select('photos, videos').single();
           if (error) throw error;
-          return data.photos as string[];
+          return [...(data.photos ?? []), ...(data.videos ?? [])] as string[];
         },
         remove: async paths => {
           const { error } = await db.storage.from('photos').remove(paths);
@@ -245,6 +245,7 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
     {workout.photos.length > 0 && <div className="gallery">{workout.photos.map((path, index) => <button type="button" className="gallery-item" key={path} onClick={() => setPhotoIndex(index)} aria-label={`Открыть фото ${index + 1} из ${workout.photos.length}`}>
       <img src={photoUrl(path)} alt={`Фото тренировки «${workout.title}», ${index + 1}`} loading="lazy" />
     </button>)}</div>}
+    {workout.videos?.length > 0 && <div className="video-gallery">{workout.videos.map((path, index) => <video key={path} className="workout-video" controls preload="metadata" playsInline src={photoUrl(path)} aria-label={`Видео тренировки ${index + 1}`} />)}</div>}
     {photoIndex !== null && workout.photos[photoIndex] && <div className="photo-lightbox" role="dialog" aria-modal="true" aria-label="Просмотр фото" onClick={() => setPhotoIndex(null)}>
       <button type="button" className="photo-lightbox-close" aria-label="Закрыть фото" onClick={() => setPhotoIndex(null)}>×</button>
       {workout.photos.length > 1 && <button type="button" className="photo-lightbox-nav photo-lightbox-prev" aria-label="Предыдущее фото" onClick={event => { event.stopPropagation(); setPhotoIndex(index => index === null ? null : (index - 1 + workout.photos.length) % workout.photos.length); }}>‹</button>}
