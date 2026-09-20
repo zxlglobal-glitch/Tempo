@@ -24,10 +24,10 @@ export async function loadWorkoutFeed(db: SupabaseClient, options: {
   if (options.userId) {
     const [hidden, blocks] = await Promise.all([
       db.from('hidden_workouts').select('workout_id').eq('user_id', options.userId),
-      db.from('user_blocks').select('blocked_id').eq('blocker_id', options.userId),
+      db.from('user_blocks').select('blocker_id, blocked_id').or(`blocker_id.eq.${options.userId},blocked_id.eq.${options.userId}`),
     ]);
     if (!hidden.error) hiddenIds = (hidden.data ?? []).map(row => row.workout_id);
-    if (!blocks.error) blockedProfileIds = (blocks.data ?? []).map(row => row.blocked_id);
+    if (!blocks.error) blockedProfileIds = (blocks.data ?? []).map(row => row.blocker_id === options.userId ? row.blocked_id : row.blocker_id);
   }
 
   if (options.followingOnly && options.userId) {
