@@ -338,11 +338,15 @@ if (isReset) {
           const { data: usernameOwner, error: usernameError } = await supabase.from('profiles').select('id').eq('username', username).maybeSingle();
           if (usernameError) throw usernameError;
           if (usernameOwner && usernameOwner.id !== current.id) throw new Error('Этот @логин уже занят. Выберите другой.');
-          let avatar_path = profile?.avatar_path ?? null;
+          const previousAvatarPath = profile?.avatar_path ?? null;
+          let avatar_path = previousAvatarPath;
           if (avatar?.size) { avatar_path = await uploadPhoto(avatar, current.id, 'avatars'); uploaded.push(avatar_path); }
           const { error } = await supabase.from('profiles').update({ username, display_name: String(form.get('display_name')).trim(), city: String(form.get('city')).trim(), bio: String(form.get('bio')).trim(), avatar_path, ...(uploaded.length ? { avatar_url: avatarUrl({ ...profile, avatar_path } as Profile) } : {}) }).eq('id', current.id).select('id').single();
           if (error) throw error;
           await supabase.auth.updateUser({ data: { username, display_name: String(form.get('display_name')).trim() } });
+          if (uploaded.length && previousAvatarPath && previousAvatarPath !== avatar_path) {
+            await supabase.storage.from('avatars').remove([previousAvatarPath]);
+          }
           router.push(`/people/${current.id}`);
         } else if (isNew) {
           await publishWorkoutPhotos(selectedPhotos, {
@@ -376,6 +380,8 @@ if (isReset) {
     observer.observe(node);
     return () => observer.disconnect();
   }, [loading, workouts.length, limit]);
+
+  if (!ready) return <div className="app-loading" role="status"><div className="app-loading-mark">tempo<span>●</span></div><div className="app-loading-line"><i /></div><p>Загружаем ваш темп…</p></div>;
 
   const known = Boolean(workoutId) || path === '/' || isAuth || isForgot || isResend || isReset || isEdit || isNew || isNotifications || isMessages || isPeopleSearch || isSaved || isSettings || Boolean(profileId);
   return <div className="shell"><aside><Link className="logo" href="/">tempo<span>●</span></Link><p className="tagline">Движение объединяет</p><nav><Link className={path === '/' ? 'active' : ''} href="/"><span className="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9 21v-6h6v6"/></svg></span><span>Лента тренировок</span></Link><Link className={isPeopleSearch ? 'active' : ''} href="/people"><span className="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></span><span>Найти людей</span></Link><Link href={user ? `/people/${user.id}` : '/login'}><span className="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.8-4 5-6 8-6s6.2 2 8 6"/></svg></span><span>Мой профиль</span></Link><Link className={path === '/notifications' ? 'active notification-nav-link' : 'notification-nav-link'} href={user ? '/notifications' : '/login'}><span className="nav-icon notification-bell" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>{unreadNotifications > 0 && <b>{unreadNotifications > 99 ? '99+' : unreadNotifications}</b>}</span><span>Уведомления</span></Link><Link className={isMessages ? 'active notification-nav-link' : 'notification-nav-link'} href={user ? '/messages' : '/login'}><span className="nav-icon notification-bell" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>{unreadMessages > 0 && <b>{unreadMessages > 99 ? '99+' : unreadMessages}</b>}</span><span>Сообщения</span></Link></nav><div className="aside-bottom"><span className="mini-mark">↗</span><h3>В своём темпе.<br/>Вместе с другими.</h3><p>Каждая тренировка —<br/>уже шаг вперёд.</p></div></aside>
