@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import { avatarUrl, displayName, profileFields, supabase, type Profile } from '@/lib/supabase';
+import { avatarUrl, displayName, profileFields, supabase, uploadMessageImage, type Profile } from '@/lib/supabase';
 import EmojiPicker from './emoji-picker';
 
 type Message = {
@@ -16,6 +16,7 @@ type Message = {
   reply_to_id: string | null;
   edited_at: string | null;
   deleted_at: string | null;
+  image_path: string | null;
 };
 
 type Conversation = {
@@ -64,6 +65,8 @@ export default function MessagesCenter({
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState('');
+  const [draftImage, setDraftImage] = useState<File | null>(null);
+  const [messageImageUrls, setMessageImageUrls] = useState<Record<string,string>>({});
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [threadSearch, setThreadSearch] = useState('');
   const threadRef = useRef<HTMLDivElement | null>(null);
@@ -83,7 +86,7 @@ export default function MessagesCenter({
     try {
       const { data, error } = await supabase
         .from('direct_messages')
-        .select('id, sender_id, receiver_id, body, created_at, read_at, reply_to_id, edited_at, deleted_at')
+        .select('id, sender_id, receiver_id, body, created_at, read_at, reply_to_id, edited_at, deleted_at, image_path')
         .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
         .order('created_at', { ascending: true })
         .limit(500);
@@ -136,9 +139,17 @@ export default function MessagesCenter({
         }
       }
 
+      const nextImageUrls: Record<string,string> = {};
+      for (const row of rows) {
+        if (!row.image_path) continue;
+        const { data: signed, error: signedError } = await supabase.storage.from('message-media').createSignedUrl(row.image_path, 3600);
+        if (!signedError && signed?.signedUrl) nextImageUrls[row.id] = signed.signedUrl;
+      }
+
       setMessages(rows);
       setProfiles(nextProfiles);
       setMessageLikes(nextLikes);
+      setMessageImageUrls(nextImageUrls);
       onUnreadChange?.(rows.filter(row => row.receiver_id === userId && !row.read_at).length);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось загрузить сообщения.');
@@ -298,23 +309,28 @@ export default function MessagesCenter({
     event.preventDefault();
     if (!supabase || !userId || !peerId || sending) return;
     const body = draft.trim();
-    if (!body) return;
+    if (!body && !draftImage) return;
     setSending(true);
     setError('');
     broadcastTyping(false);
+    let uploadedImagePath: string | null = null;
     try {
+      if (draftImage) uploadedImagePath = await uploadMessageImage(draftImage, userId);
       const { error } = await supabase.from('direct_messages').insert({
         sender_id: userId,
         receiver_id: peerId,
         body,
         reply_to_id: replyTo?.id ?? null,
+        image_path: uploadedImagePath,
       });
       if (error) throw error;
       setDraft('');
+      setDraftImage(null);
       setReplyTo(null);
       stickToBottom.current = true;
       await load(true);
     } catch (e) {
+      if (uploadedImagePath) await supabase.storage.from('message-media').remove([uploadedImagePath]);
       setError(e instanceof Error ? e.message : 'Не удалось отправить сообщение.');
     } finally {
       setSending(false);
@@ -346,7 +362,8 @@ export default function MessagesCenter({
             <div className="message-bubble-shell">
               <div className={`message-bubble ${row.deleted_at ? 'deleted' : ''}`}>
                 {row.reply_to_id && (() => { const original = thread.find(item => item.id === row.reply_to_id); return original ? <button type="button" className="message-reply-preview" onClick={() => document.getElementById(`message-${original.id}`)?.scrollIntoView({behavior:'smooth',block:'center'})}><strong>{original.sender_id === userId ? 'Вы' : displayName(peer)}</strong><span>{original.body}</span></button> : null; })()}
-                <p id={`message-${row.id}`}>{row.body}</p>
+                {row.image_path && messageImageUrls[row.id] && <a className="message-image-link" href={messageImageUrls[row.id]} target="_blank" rel="noreferrer"><img className="message-image" src={messageImageUrls[row.id]} alt="Фото в сообщении" loading="lazy" /></a>}
+                {row.body && <p id={`message-${row.id}`}>{row.body}</p>}
                 <small>
                   {formatMessageTime(row.created_at)}{row.edited_at && !row.deleted_at && <span className="edited-mark"> · изменено</span>}
                   {row.sender_id === userId && <span className={`read-check ${row.read_at ? 'read' : ''}`} title={row.read_at ? 'Прочитано' : 'Отправлено'}>{row.read_at ? '✓✓' : '✓'}</span>}
@@ -370,7 +387,20 @@ export default function MessagesCenter({
         {peerTyping && <div className="typing-indicator" aria-live="polite"><span/><span/><span/></div>}
       </div>
       {replyTo && <div className="reply-composer-preview"><div><strong>Ответ на сообщение</strong><span>{replyTo.body}</span></div><button type="button" onClick={() => setReplyTo(null)}>×</button></div>}
+      {draftImage && <div className="message-image-preview"><img src={URL.createObjectURL(draftImage)} alt="Фото для отправки" /><div><strong>{draftImage.name}</strong><span>{Math.max(1, Math.round(draftImage.size/1024))} КБ</span></div><button type="button" onClick={() => setDraftImage(null)}>×</button></div>}
       <form className="message-composer" onSubmit={send}>
+        <div className="message-attachment-control">
+          <label className="message-attachment-button" title="Добавить фото">
+            <span aria-hidden="true">＋</span>
+            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={event => {
+              const file = event.currentTarget.files?.[0] ?? null;
+              event.currentTarget.value = '';
+              if (!file) return;
+              if (file.size > 10 * 1024 * 1024) { setError('Фото в сообщении должно быть не больше 10 МБ.'); return; }
+              setDraftImage(file); setError('');
+            }} />
+          </label>
+        </div>
         <div className="emoji-input-wrap message-input-wrap">
           <textarea
             name="body"
@@ -383,7 +413,7 @@ export default function MessagesCenter({
           />
           <EmojiPicker onPick={emoji => { setDraft(value => (value + emoji).slice(0, 2000)); broadcastTyping(true); }} label="Добавить смайлик в сообщение" />
         </div>
-        <button className="primary" disabled={sending || !draft.trim()}>{sending ? 'Отправляем…' : 'Отправить'}</button>
+        <button className="primary" disabled={sending || (!draft.trim() && !draftImage)}>{sending ? 'Отправляем…' : 'Отправить'}</button>
       </form>
     </section>;
   }
