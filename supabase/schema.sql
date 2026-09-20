@@ -936,3 +936,23 @@ using (
 
 commit;
 
+-- Tempo direct message hidden upsert policy
+begin;
+
+drop policy if exists direct_message_hidden_update_own on public.direct_message_hidden;
+create policy direct_message_hidden_update_own
+on public.direct_message_hidden
+for update to authenticated
+using ((select auth.uid()) = user_id)
+with check (
+  (select auth.uid()) = user_id
+  and exists (
+    select 1
+    from public.direct_messages m
+    where m.id = message_id
+      and ((select auth.uid()) = m.sender_id or (select auth.uid()) = m.receiver_id)
+  )
+);
+
+commit;
+
