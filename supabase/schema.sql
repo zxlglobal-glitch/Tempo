@@ -870,3 +870,47 @@ revoke all on function public.notify_message_like() from public,anon,authenticat
 
 commit;
 
+-- Tempo per-user message deletion
+begin;
+
+create table if not exists public.direct_message_hidden (
+  message_id uuid not null references public.direct_messages(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  hidden_at timestamptz not null default now(),
+  primary key (message_id, user_id)
+);
+
+create index if not exists direct_message_hidden_user_idx
+  on public.direct_message_hidden(user_id, hidden_at desc);
+
+alter table public.direct_message_hidden enable row level security;
+grant select, insert, delete on public.direct_message_hidden to authenticated;
+
+drop policy if exists direct_message_hidden_read_own on public.direct_message_hidden;
+create policy direct_message_hidden_read_own
+on public.direct_message_hidden
+for select to authenticated
+using ((select auth.uid()) = user_id);
+
+drop policy if exists direct_message_hidden_insert_own on public.direct_message_hidden;
+create policy direct_message_hidden_insert_own
+on public.direct_message_hidden
+for insert to authenticated
+with check (
+  (select auth.uid()) = user_id
+  and exists (
+    select 1
+    from public.direct_messages m
+    where m.id = message_id
+      and ((select auth.uid()) = m.sender_id or (select auth.uid()) = m.receiver_id)
+  )
+);
+
+drop policy if exists direct_message_hidden_delete_own on public.direct_message_hidden;
+create policy direct_message_hidden_delete_own
+on public.direct_message_hidden
+for delete to authenticated
+using ((select auth.uid()) = user_id);
+
+commit;
+
