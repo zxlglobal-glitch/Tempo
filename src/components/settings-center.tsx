@@ -113,10 +113,20 @@ export default function SettingsCenter({ userId }: { userId?: string }) {
   async function deleteAccount() {
     if (!supabase || !userId) return;
     setBusy('delete-account'); setError('');
-    const { error }=await supabase.rpc('delete_own_account');
-    if (error) { setError(socialError(error)); setBusy(''); return; }
-    await supabase.auth.signOut();
-    router.push('/');
+    try {
+      for (const bucket of ['avatars','photos','message-media'] as const) {
+        const { data } = await supabase.storage.from(bucket).list(userId, { limit:1000 });
+        const paths=(data ?? []).filter(item => item.name && item.name !== '.emptyFolderPlaceholder').map(item => `${userId}/${item.name}`);
+        if (paths.length) await supabase.storage.from(bucket).remove(paths);
+      }
+      const { error }=await supabase.rpc('delete_own_account');
+      if (error) throw error;
+      await supabase.auth.signOut();
+      router.push('/');
+    } catch (cause) {
+      setError(socialError(cause));
+      setBusy('');
+    }
   }
 
   if (!userId) return <section className="card empty"><h2>Войдите, чтобы открыть настройки</h2></section>;
