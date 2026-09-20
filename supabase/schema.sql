@@ -16,7 +16,11 @@ create table if not exists public.workouts (
   body text not null default '' check (char_length(body) <= 3000),
   category text not null check (category in (
     'Тренажерный зал', 'Бег', 'Плавание', 'Велосипед', 'Ходьба',
-    'Лыжи', 'Сноуборд', 'Дома', 'Йога'
+    'Лыжи', 'Сноуборд', 'Дома', 'Йога', 'Улица', 'Прогулка',
+    'Кроссфит', 'Функциональный тренинг', 'Воркаут', 'Растяжка',
+    'Пилатес', 'Танцы', 'Футбол', 'Баскетбол', 'Волейбол', 'Теннис',
+    'Бокс', 'Единоборства', 'Скалолазание', 'Гребля', 'Коньки',
+    'Хайкинг', 'Трейлраннинг'
   )),
   duration integer not null check (duration between 1 and 1440),
   photos text[] not null default '{}' check (cardinality(photos) <= 6),
@@ -379,3 +383,23 @@ $migration$;
 
 commit;
 
+
+
+-- Tempo expanded workout categories
+begin;
+
+alter table public.workouts
+  drop constraint if exists workouts_category_check;
+
+alter table public.workouts
+  add constraint workouts_category_check
+  check (category in (
+    'Тренажерный зал', 'Бег', 'Плавание', 'Велосипед', 'Ходьба',
+    'Лыжи', 'Сноуборд', 'Дома', 'Йога', 'Улица', 'Прогулка',
+    'Кроссфит', 'Функциональный тренинг', 'Воркаут', 'Растяжка',
+    'Пилатес', 'Танцы', 'Футбол', 'Баскетбол', 'Волейбол', 'Теннис',
+    'Бокс', 'Единоборства', 'Скалолазание', 'Гребля', 'Коньки',
+    'Хайкинг', 'Трейлраннинг'
+  ));
+
+commit;
