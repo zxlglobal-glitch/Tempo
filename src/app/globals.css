@@ -470,3 +470,49 @@ body{overflow-x:hidden}
   .reply-composer-preview,.message-images-preview,.message-upload-progress,.message-access-notice{position:relative;z-index:36}
 }
 
+/* Settings skeleton + mobile card polish */
+.settings-skeleton{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.settings-skeleton-card{min-height:150px;padding:20px;overflow:hidden}
+.settings-skeleton-card>*{display:block;border-radius:999px;background:linear-gradient(90deg,#edf0ea 25%,#f7f8f4 50%,#edf0ea 75%);background-size:200% 100%;animation:tempoSkeleton 1.25s infinite linear}
+.settings-skeleton-card i{width:28%;height:9px;margin-bottom:16px}
+.settings-skeleton-card b{width:45%;height:18px;margin-bottom:13px}
+.settings-skeleton-card span{width:82%;height:9px;margin-top:8px}
+.settings-skeleton-card span:last-child{width:62%}
+.settings-saving{position:absolute;right:52px;bottom:8px;font-style:normal;font-size:8px;color:var(--muted)}
+@keyframes tempoSkeleton{to{background-position:-200% 0}}
+
+@media(max-width:700px){
+  .settings-skeleton{grid-template-columns:1fr}
+  .settings-skeleton-card{min-height:128px;padding:16px}
+  .settings-heading{margin-bottom:18px}
+  .settings-heading h1{font-size:32px}
+  .settings-section{border-radius:14px}
+  .settings-section-head{margin-bottom:14px}
+  .settings-section-head h2{font-size:18px}
+  .blocked-row{align-items:center}
+  .blocked-row .reaction{margin-left:auto;white-space:nowrap}
+  .account-actions{display:grid;grid-template-columns:1fr 1fr}
+  .account-actions .reaction{width:100%}
+  .form-card{border-radius:14px}
+  .form-card fieldset{margin-top:18px}
+  .form-card label{margin-bottom:16px}
+  .form-row{grid-template-columns:1fr}
+  input,textarea,select{font-size:16px}
+  .profile{align-items:flex-start}
+  .profile>div{min-width:0;flex:1}
+  .profile-actions{width:100%;margin-top:10px}
+  .profile-actions .reaction,.profile-actions .quiet-action{min-height:34px}
+  .workout{border-radius:14px;margin-bottom:14px}
+  .workout-top{margin-bottom:16px}
+  .workout h2{font-size:20px;line-height:1.25}
+  .workout>p{font-size:12px}
+  .gallery{margin:14px 0}
+  .gallery img{height:150px}
+  .workout footer{padding-top:12px}
+  .workout-owner-actions{gap:2px}
+  .workout-owner-actions .quiet-action{font-size:9px;padding:6px}
+  .people-search-form{grid-template-columns:1fr}
+  .people-search-prefix{display:none}
+  .people-search-form .primary{width:100%}
+}
+
