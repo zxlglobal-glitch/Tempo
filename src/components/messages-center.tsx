@@ -93,7 +93,14 @@ export default function MessagesCenter({
         .limit(500);
       if (error) throw error;
 
-      const rows = (data ?? []) as Message[];
+      const allRows = (data ?? []) as Message[];
+      const { data: hiddenRows, error: hiddenError } = await supabase
+        .from('direct_message_hidden')
+        .select('message_id')
+        .eq('user_id', userId);
+      if (hiddenError) throw hiddenError;
+      const hiddenIds = new Set((hiddenRows ?? []).map(row => row.message_id));
+      const rows = allRows.filter(row => !hiddenIds.has(row.id));
       const ids = [...new Set(rows.flatMap(row => [row.sender_id, row.receiver_id]).filter(id => id !== userId))];
       if (peerId && !ids.includes(peerId)) ids.push(peerId);
 
@@ -182,6 +189,11 @@ export default function MessagesCenter({
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'direct_message_likes' },
+        () => void load(true),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'direct_message_hidden', filter: `user_id=eq.${userId}` },
         () => void load(true),
       )
       .subscribe();
@@ -287,14 +299,40 @@ export default function MessagesCenter({
     await load(true);
   }
 
-  async function deleteMessage(message: Message) {
-    if (!supabase || !userId || message.sender_id !== userId || message.deleted_at) return;
-    if (!window.confirm('Удалить это сообщение?')) return;
-    if (message.image_path) await supabase.storage.from('message-media').remove([message.image_path]);
-    const { error } = await supabase.from('direct_messages').update({ body: 'Сообщение удалено', image_path: null, deleted_at: new Date().toISOString(), edited_at: null }).eq('id', message.id).eq('sender_id', userId);
+  async function deleteMessageForMe(message: Message) {
+    if (!supabase || !userId) return;
+    const { error } = await supabase.from('direct_message_hidden').upsert({
+      message_id: message.id,
+      user_id: userId,
+      hidden_at: new Date().toISOString(),
+    }, { onConflict: 'message_id,user_id' });
     if (error) { setError(error.message); return; }
     if (replyTo?.id === message.id) setReplyTo(null);
-    await load(true);
+    setMessages(current => current.filter(row => row.id !== message.id));
+  }
+
+  async function clearConversation(targetPeerId: string, confirmText = 'Очистить всю переписку у себя? Собеседник продолжит видеть сообщения.') {
+    if (!supabase || !userId) return;
+    const ids = messages
+      .filter(row =>
+        (row.sender_id === userId && row.receiver_id === targetPeerId)
+        || (row.sender_id === targetPeerId && row.receiver_id === userId)
+      )
+      .map(row => row.id);
+    if (!ids.length) return;
+    if (!window.confirm(confirmText)) return;
+    const { error } = await supabase.from('direct_message_hidden').upsert(
+      ids.map(message_id => ({ message_id, user_id: userId, hidden_at: new Date().toISOString() })),
+      { onConflict: 'message_id,user_id' },
+    );
+    if (error) { setError(error.message); return; }
+    setReplyTo(null);
+    setThreadSearch('');
+    setMessages(current => current.filter(row => !ids.includes(row.id)));
+  }
+
+  async function deleteConversation(targetPeerId: string) {
+    await clearConversation(targetPeerId, 'Удалить этот диалог у себя целиком? У собеседника переписка останется.');
   }
 
   async function toggleMessageLike(messageId: string) {
@@ -355,6 +393,7 @@ export default function MessagesCenter({
       <div className="messages-heading">
         <Link className="underlink" href="/messages">← Все диалоги</Link>
         <div className="thread-search"><input value={threadSearch} onChange={event => setThreadSearch(event.target.value)} placeholder="Поиск в переписке" /></div>
+        {thread.length > 0 && <button className="thread-clear-button" type="button" onClick={() => void clearConversation(peerId)} title="Очистить переписку">Очистить</button>}
         {peer && <Link className="message-peer" href={`/people/${peer.id}`}>
           <span className="message-peer-avatar"><Avatar profile={peer}/>{peerOnline && <i className="online-dot" aria-label="В сети"/>}</span>
           <div>
@@ -378,7 +417,7 @@ export default function MessagesCenter({
                   {row.sender_id === userId && <span className={`read-check ${row.read_at ? 'read' : ''}`} title={row.read_at ? 'Прочитано' : 'Отправлено'}>{row.read_at ? '✓✓' : '✓'}</span>}
                 </small>
               </div>
-              {!row.deleted_at && <div className="message-hover-actions"><button type="button" onClick={() => setReplyTo(row)}>↩</button>{row.sender_id === userId && <><button type="button" onClick={() => void editMessage(row)}>✎</button><button type="button" onClick={() => void deleteMessage(row)}>×</button></>}</div>}
+              {!row.deleted_at && <div className="message-hover-actions"><button type="button" onClick={() => setReplyTo(row)} title="Ответить">↩</button>{row.sender_id === userId && <button type="button" onClick={() => void editMessage(row)} title="Редактировать">✎</button>}<button type="button" onClick={() => void deleteMessageForMe(row)} title="Удалить у себя">×</button></div>}
               <button
                 type="button"
                 className={`message-like-button ${messageLikes[row.id]?.liked ? 'liked' : ''}`}
@@ -431,14 +470,19 @@ export default function MessagesCenter({
     <div className="messages-list-heading"><div><p className="eyebrow">ЛИЧНЫЕ СООБЩЕНИЯ</p><h1>Диалоги</h1></div></div>
     {error && <div className="notice" role="alert">{error}</div>}
     {loading ? <div className="card empty">Загружаем сообщения…</div> : conversations.length ? <div className="conversation-list">
-      {conversations.map(item => <Link className="card conversation-row" key={item.peer.id} href={`/messages/${item.peer.id}`}>
-        <Avatar profile={item.peer}/>
-        <div className="conversation-copy">
-          <div><strong>{displayName(item.peer)} <span>@{item.peer.username}</span></strong><small>{formatMessageTime(item.last.created_at)}</small></div>
-          <p>{item.last.sender_id === userId ? 'Вы: ' : ''}{item.last.body}</p>
-        </div>
-        {item.unread > 0 && <span className="conversation-unread">{item.unread > 99 ? '99+' : item.unread}</span>}
-      </Link>)}
+      {conversations.map(item => <article className="card conversation-row conversation-row-shell" key={item.peer.id}>
+        <Link className="conversation-row-link" href={`/messages/${item.peer.id}`}>
+          <Avatar profile={item.peer}/>
+          <div className="conversation-copy">
+            <div><strong>{displayName(item.peer)} <span>@{item.peer.username}</span></strong><small>{formatMessageTime(item.last.created_at)}</small></div>
+            <p>{item.last.sender_id === userId ? 'Вы: ' : ''}{item.last.body || (item.last.image_path ? 'Фото' : '')}</p>
+          </div>
+          {item.unread > 0 && <span className="conversation-unread">{item.unread > 99 ? '99+' : item.unread}</span>}
+        </Link>
+        <button className="conversation-delete-button" type="button" aria-label={`Удалить диалог с ${displayName(item.peer)}`} title="Удалить диалог" onClick={() => void deleteConversation(item.peer.id)}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>
+        </button>
+      </article>)}
     </div> : <div className="card empty"><h2>Пока нет диалогов</h2><p>Найдите участника TEMPO и нажмите «Написать».</p><Link className="underlink" href="/people">Найти людей →</Link></div>}
   </section>;
 }
