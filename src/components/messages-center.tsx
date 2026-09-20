@@ -66,6 +66,7 @@ export default function MessagesCenter({
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState('');
   const [draftImage, setDraftImage] = useState<File | null>(null);
+  const [draftImageUrl, setDraftImageUrl] = useState('');
   const [messageImageUrls, setMessageImageUrls] = useState<Record<string,string>>({});
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [threadSearch, setThreadSearch] = useState('');
@@ -157,6 +158,13 @@ export default function MessagesCenter({
       if (!background) setLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (!draftImage) { setDraftImageUrl(''); return; }
+    const url = URL.createObjectURL(draftImage);
+    setDraftImageUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [draftImage]);
 
   useEffect(() => {
     void load(false);
@@ -387,7 +395,7 @@ export default function MessagesCenter({
         {peerTyping && <div className="typing-indicator" aria-live="polite"><span/><span/><span/></div>}
       </div>
       {replyTo && <div className="reply-composer-preview"><div><strong>Ответ на сообщение</strong><span>{replyTo.body}</span></div><button type="button" onClick={() => setReplyTo(null)}>×</button></div>}
-      {draftImage && <div className="message-image-preview"><img src={URL.createObjectURL(draftImage)} alt="Фото для отправки" /><div><strong>{draftImage.name}</strong><span>{Math.max(1, Math.round(draftImage.size/1024))} КБ</span></div><button type="button" onClick={() => setDraftImage(null)}>×</button></div>}
+      {draftImage && draftImageUrl && <div className="message-image-preview"><img src={draftImageUrl} alt="Фото для отправки" /><div><strong>{draftImage.name}</strong><span>{Math.max(1, Math.round(draftImage.size/1024))} КБ</span></div><button type="button" onClick={() => setDraftImage(null)}>×</button></div>}
       <form className="message-composer" onSubmit={send}>
         <div className="message-attachment-control">
           <label className="message-attachment-button" title="Добавить фото">
