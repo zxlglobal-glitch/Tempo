@@ -3,7 +3,7 @@ const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 export const supabase = url && key ? createClient(url, key) : null;
 export const categories = ['Тренажерный зал', 'Бег', 'Плавание', 'Велосипед', 'Ходьба', 'Лыжи', 'Сноуборд', 'Дома', 'Йога'] as const;
-export type Profile = { id: string; username: string | null; display_name: string | null; city: string | null; bio: string | null; avatar_path: string | null; avatar_url: string | null };
+export type Profile = { id: string; username: string; display_name: string | null; city: string | null; bio: string | null; avatar_path: string | null; avatar_url: string | null };
 export type Workout = { id: string; user_id: string; title: string; body: string; category: string; duration: number; photos: string[]; created_at: string; profiles: Profile | null };
 export const profileFields = 'id, username, display_name, city, bio, avatar_path, avatar_url';
 export function displayName(profile: Profile | null) { return profile?.display_name || profile?.username || 'Участник'; }
