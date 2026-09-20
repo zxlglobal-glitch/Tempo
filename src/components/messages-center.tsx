@@ -82,6 +82,7 @@ export default function MessagesCenter({
   const [error, setError] = useState('');
   const [peerOnline, setPeerOnline] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
+  const [messageAccess, setMessageAccess] = useState<'allowed'|'blocked'|'restricted'>('allowed');
   const [messageLikes, setMessageLikes] = useState<Record<string, { count: number; liked: boolean }>>({});
   const [likeBusy, setLikeBusy] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ type:'thread'|'conversation'; peerId:string; peerName:string } | null>(null);
@@ -226,6 +227,43 @@ export default function MessagesCenter({
     return () => {
       void supabase?.removeChannel(channel);
     };
+  }, [userId, peerId]);
+
+  useEffect(() => {
+    if (!supabase || !userId || !peerId) { setMessageAccess('allowed'); return; }
+    let active = true;
+    async function loadMessageAccess() {
+      const blocks = await supabase!.from('user_blocks')
+        .select('blocker_id, blocked_id')
+        .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`);
+      if (!active) return;
+      const blocked = (blocks.data ?? []).some(row =>
+        (row.blocker_id === userId && row.blocked_id === peerId)
+        || (row.blocker_id === peerId && row.blocked_id === userId)
+      );
+      if (blocked) { setMessageAccess('blocked'); return; }
+
+      const privacy = await supabase!.from('privacy_settings')
+        .select('message_permission')
+        .eq('user_id', peerId)
+        .maybeSingle();
+      if (!active) return;
+      const permission = privacy.data?.message_permission ?? 'all';
+      if (permission === 'none') { setMessageAccess('restricted'); return; }
+      if (permission === 'following') {
+        const follow = await supabase!.from('follows')
+          .select('follower_id')
+          .eq('follower_id', peerId)
+          .eq('following_id', userId)
+          .maybeSingle();
+        if (!active) return;
+        setMessageAccess(follow.data ? 'allowed' : 'restricted');
+        return;
+      }
+      setMessageAccess('allowed');
+    }
+    void loadMessageAccess();
+    return () => { active = false; };
   }, [userId, peerId]);
 
   useEffect(() => {
@@ -394,7 +432,7 @@ export default function MessagesCenter({
 
   async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!supabase || !userId || !peerId || sending) return;
+    if (!supabase || !userId || !peerId || sending || messageAccess !== 'allowed') return;
     const body = draft.trim();
     if (!body && !draftImages.length) return;
     setSending(true);
@@ -536,7 +574,9 @@ export default function MessagesCenter({
         </figure>)}
       </div>}
       {uploadProgress && <div className="message-upload-progress"><span style={{ width:`${Math.round(uploadProgress.current/uploadProgress.total*100)}%` }} /><small>Загружаем фото {uploadProgress.current}/{uploadProgress.total}</small></div>}
-      <form className="message-composer" onSubmit={send}>
+      {messageAccess !== 'allowed'
+        ? <div className="message-access-notice">{messageAccess === 'blocked' ? 'Переписка недоступна из-за блокировки.' : 'Пользователь ограничил получение новых сообщений.'}</div>
+        : <form className="message-composer" onSubmit={send}>
         <div className="message-attachment-control">
           <label className="message-attachment-button" title="Добавить фото">
             <span aria-hidden="true">＋</span>
@@ -562,7 +602,7 @@ export default function MessagesCenter({
           <EmojiPicker onPick={emoji => { setDraft(value => (value + emoji).slice(0, 2000)); broadcastTyping(true); }} label="Добавить смайлик в сообщение" />
         </div>
         <button className="primary" disabled={sending || (!draft.trim() && !draftImages.length)}>{sending ? 'Отправляем…' : 'Отправить'}</button>
-      </form>
+      </form>}
     </section></>;
   }
 
