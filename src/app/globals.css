@@ -255,3 +255,8 @@
   .avatar-crop-stage,.avatar-crop-stage canvas{width:260px;height:260px}
 }
 
+/* Compact comment delete */
+.comment-delete-button{border:0;background:transparent;color:#9a6666;padding:3px 5px;font-size:9px;line-height:1.2;border-radius:5px;cursor:pointer}
+.comment-delete-button:hover{background:#fff1f1;color:#984646}
+.comment-delete-button:disabled{opacity:.45}
+
