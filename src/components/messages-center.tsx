@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { avatarUrl, displayName, profileFields, supabase, type Profile } from '@/lib/supabase';
+import EmojiPicker from './emoji-picker';
 
 type Message = {
   id: string;
@@ -50,6 +51,7 @@ export default function MessagesCenter({
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [draft, setDraft] = useState('');
   const [error, setError] = useState('');
   const [peerOnline, setPeerOnline] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
@@ -251,9 +253,7 @@ export default function MessagesCenter({
   async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase || !userId || !peerId || sending) return;
-    const formElement = event.currentTarget;
-    const form = new FormData(formElement);
-    const body = String(form.get('body') ?? '').trim();
+    const body = draft.trim();
     if (!body) return;
     setSending(true);
     setError('');
@@ -265,7 +265,7 @@ export default function MessagesCenter({
         body,
       });
       if (error) throw error;
-      formElement.reset();
+      setDraft('');
       await load(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось отправить сообщение.');
@@ -319,15 +319,19 @@ export default function MessagesCenter({
         {peerTyping && <div className="typing-indicator" aria-live="polite"><span/><span/><span/></div>}
       </div>
       <form className="message-composer" onSubmit={send}>
-        <textarea
-          name="body"
-          maxLength={2000}
-          placeholder="Написать сообщение…"
-          required
-          onInput={() => broadcastTyping(true)}
-          onBlur={() => broadcastTyping(false)}
-        />
-        <button className="primary" disabled={sending}>{sending ? 'Отправляем…' : 'Отправить'}</button>
+        <div className="emoji-input-wrap message-input-wrap">
+          <textarea
+            name="body"
+            maxLength={2000}
+            placeholder="Написать сообщение…"
+            required
+            value={draft}
+            onChange={event => { setDraft(event.target.value); broadcastTyping(true); }}
+            onBlur={() => broadcastTyping(false)}
+          />
+          <EmojiPicker onPick={emoji => { setDraft(value => (value + emoji).slice(0, 2000)); broadcastTyping(true); }} label="Добавить смайлик в сообщение" />
+        </div>
+        <button className="primary" disabled={sending || !draft.trim()}>{sending ? 'Отправляем…' : 'Отправить'}</button>
       </form>
     </section>;
   }
