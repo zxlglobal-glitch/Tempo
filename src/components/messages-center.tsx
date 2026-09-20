@@ -220,10 +220,6 @@ export default function MessagesCenter({
     : [];
 
   const peer = peerId ? profiles[peerId] ?? null : null;
-  const lastOwnMessageId = userId
-    ? [...thread].reverse().find(row => row.sender_id === userId)?.id ?? null
-    : null;
-
   function broadcastTyping(typing: boolean) {
     if (!threadChannelRef.current || !userId) return;
     void threadChannelRef.current.send({
@@ -295,6 +291,13 @@ export default function MessagesCenter({
         {loading ? <div className="empty">Загружаем переписку…</div> : thread.length ? thread.map(row =>
           <div key={row.id} className={`message-bubble-wrap ${row.sender_id === userId ? 'own' : ''}`}>
             <div className="message-bubble-shell">
+              <div className="message-bubble">
+                <p>{row.body}</p>
+                <small>
+                  {formatMessageTime(row.created_at)}
+                  {row.sender_id === userId && <span className={`read-check ${row.read_at ? 'read' : ''}`} title={row.read_at ? 'Прочитано' : 'Отправлено'}>{row.read_at ? '✓✓' : '✓'}</span>}
+                </small>
+              </div>
               <button
                 type="button"
                 className={`message-like-button ${messageLikes[row.id]?.liked ? 'liked' : ''}`}
@@ -303,16 +306,9 @@ export default function MessagesCenter({
                 disabled={likeBusy === row.id}
                 onClick={() => void toggleMessageLike(row.id)}
               >
-                <span>{messageLikes[row.id]?.liked ? '♥' : '♡'}</span>
-                {(messageLikes[row.id]?.count ?? 0) > 0 && <b>{messageLikes[row.id]?.count}</b>}
+                <span aria-hidden="true">♥</span>
+                {(messageLikes[row.id]?.count ?? 0) > 1 && <b>{messageLikes[row.id]?.count}</b>}
               </button>
-              <div className="message-bubble">
-                <p>{row.body}</p>
-                <small>
-                  {formatMessageTime(row.created_at)}
-                  {row.sender_id === userId && row.id === lastOwnMessageId && <span className={`read-check ${row.read_at ? 'read' : ''}`} title={row.read_at ? 'Прочитано' : 'Доставлено'}>{row.read_at ? '✓✓' : '✓'}</span>}
-                </small>
-              </div>
             </div>
           </div>
         ) : <div className="empty"><h2>Начните диалог</h2><p>Напишите первое сообщение.</p></div>}
