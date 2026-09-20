@@ -531,7 +531,7 @@ export default function MessagesCenter({
               <div id={`message-${row.id}`} className={`message-bubble ${row.deleted_at ? 'deleted' : ''}`}>
                 {row.reply_to_id && (() => { const original = thread.find(item => item.id === row.reply_to_id); return original ? <button type="button" className="message-reply-preview" onClick={() => document.getElementById(`message-${original.id}`)?.scrollIntoView({behavior:'smooth',block:'center'})}><strong>{original.sender_id === userId ? 'Вы' : displayName(peer)}</strong><span>{original.body}</span></button> : null; })()}
                 {!row.deleted_at && (messageImageUrls[row.id]?.length ?? 0) > 0 && <div className={`message-image-grid count-${Math.min(messageImageUrls[row.id].length,4)}`}>
-                  {messageImageUrls[row.id].map((url,index) => <button type="button" className="message-image-button" key={url} onClick={() => setLightbox({ urls:messageImageUrls[row.id], index })} aria-label={`Открыть фото ${index+1}`}>
+                  {messageImageUrls[row.id]!.map((url,index) => <button type="button" className="message-image-button" key={url} onClick={() => setLightbox({ urls:messageImageUrls[row.id]!, index })} aria-label={`Открыть фото ${index+1}`}>
                     <img className="message-image" src={url} alt="" loading="lazy" />
                   </button>)}
                 </div>}
