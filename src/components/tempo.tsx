@@ -13,7 +13,7 @@ import { publishWorkoutPhotos } from '@/lib/workout-photos';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { supabase, categories, photoUrl, avatarUrl, displayName, profileFields, uploadPhoto, type Profile, type Workout } from '@/lib/supabase';
+import { supabase, categories, photoUrl, avatarUrl, displayName, profileFields, uploadPhoto, uploadWorkoutMedia, type Profile, type Workout } from '@/lib/supabase';
 
 export default function Tempo() {
   const path = usePathname(); const router = useRouter();
@@ -322,9 +322,9 @@ if (isReset) {
           router.push(`/people/${current.id}`);
         } else if (isNew) {
           await publishWorkoutPhotos(selectedPhotos, {
-            upload: file => uploadPhoto(file, current.id, 'photos'),
-            insert: async photos => {
-              const { error } = await supabase!.from('workouts').insert({ user_id: current.id, title: String(form.get('title')).trim(), body: String(form.get('body')).trim(), category: String(form.get('category')), duration: Number(form.get('duration')), photos });
+            upload: file => uploadWorkoutMedia(file, current.id),
+            insert: async media => {
+              const { error } = await supabase!.from('workouts').insert({ user_id: current.id, title: String(form.get('title')).trim(), body: String(form.get('body')).trim(), category: String(form.get('category')), duration: Number(form.get('duration')), photos: media.photos, videos: media.videos });
               if (error) throw new Error(`Не удалось сохранить тренировку: ${error.message}`);
             },
             remove: async paths => {
