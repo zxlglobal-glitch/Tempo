@@ -185,3 +185,75 @@ end;
 $migration$;
 
 commit;
+
+-- Tempo direct messages
+begin;
+
+create table if not exists public.direct_messages (
+  id uuid primary key default gen_random_uuid(),
+  sender_id uuid not null references public.profiles(id) on delete cascade,
+  receiver_id uuid not null references public.profiles(id) on delete cascade,
+  body text not null check (char_length(trim(body)) between 1 and 2000),
+  created_at timestamptz not null default now(),
+  read_at timestamptz,
+  check (sender_id <> receiver_id)
+);
+
+create index if not exists direct_messages_sender_created_idx
+  on public.direct_messages(sender_id, created_at desc);
+create index if not exists direct_messages_receiver_created_idx
+  on public.direct_messages(receiver_id, created_at desc);
+create index if not exists direct_messages_unread_idx
+  on public.direct_messages(receiver_id, read_at, created_at desc);
+
+alter table public.direct_messages enable row level security;
+grant select, insert, update on public.direct_messages to authenticated;
+
+do $migration$
+begin
+  if not exists (
+    select 1 from pg_catalog.pg_policies
+    where schemaname='public' and tablename='direct_messages' and policyname='tempo_messages_read_v1'
+  ) then
+    create policy tempo_messages_read_v1
+      on public.direct_messages for select to authenticated
+      using ((select auth.uid()) = sender_id or (select auth.uid()) = receiver_id);
+  end if;
+
+  if not exists (
+    select 1 from pg_catalog.pg_policies
+    where schemaname='public' and tablename='direct_messages' and policyname='tempo_messages_insert_v1'
+  ) then
+    create policy tempo_messages_insert_v1
+      on public.direct_messages for insert to authenticated
+      with check ((select auth.uid()) = sender_id and sender_id <> receiver_id);
+  end if;
+
+  if not exists (
+    select 1 from pg_catalog.pg_policies
+    where schemaname='public' and tablename='direct_messages' and policyname='tempo_messages_update_v1'
+  ) then
+    create policy tempo_messages_update_v1
+      on public.direct_messages for update to authenticated
+      using ((select auth.uid()) = receiver_id)
+      with check ((select auth.uid()) = receiver_id and sender_id <> receiver_id);
+  end if;
+end;
+$migration$;
+
+do $publication$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (
+       select 1 from pg_publication_tables
+       where pubname='supabase_realtime'
+         and schemaname='public'
+         and tablename='direct_messages'
+     ) then
+    alter publication supabase_realtime add table public.direct_messages;
+  end if;
+end;
+$publication$;
+
+commit;
+
