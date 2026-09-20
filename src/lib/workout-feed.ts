@@ -59,7 +59,7 @@ export async function loadWorkoutFeed(db: SupabaseClient, options: {
   }
   if (result.error) throw new Error(`Не удалось загрузить тренировки. ${describeQueryError(result.error)}`);
 
-  let rows = (result.data ?? []).map(row => ({ ...row, photos: Array.isArray(row.photos) ? row.photos : [], profiles: row.profiles ?? null })).filter(row => !hiddenIds.includes(row.id));
+  let rows = (result.data ?? []).map(row => ({ ...row, photos: Array.isArray(row.photos) ? row.photos : [], videos: Array.isArray(row.videos) ? row.videos : [], profiles: row.profiles ?? null })).filter(row => !hiddenIds.includes(row.id));
   if (savedWorkoutIds) {
     const order = new Map(savedWorkoutIds.map((id, index) => [id, index]));
     rows = rows.sort((a,b) => (order.get(a.id) ?? 999999) - (order.get(b.id) ?? 999999));
