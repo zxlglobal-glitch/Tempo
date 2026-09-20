@@ -97,7 +97,7 @@ export default function WorkoutComments({ workoutId, userId, onChange }: {
     {comments.map(comment => <article className="comment" key={comment.id}>
       <Link className="author" href={`/people/${comment.user_id}`}>
         <ProfileAvatar profile={comment.profiles} />
-        <div><strong>{displayName(comment.profiles)}</strong><small>{new Date(comment.created_at).toLocaleString('ru-RU')}</small></div>
+        <div><strong>{displayName(comment.profiles)}</strong><small>{comment.profiles ? `@${comment.profiles.username} · ` : ''}{new Date(comment.created_at).toLocaleString('ru-RU')}</small></div>
       </Link>
       <p className="bio">{comment.body}</p>
       <div className="comment-actions">
