@@ -403,3 +403,148 @@ alter table public.workouts
   ));
 
 commit;
+
+-- Tempo social upgrades bundle
+begin;
+
+create table if not exists public.workout_saves (
+  workout_id uuid not null references public.workouts(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (workout_id, user_id)
+);
+create index if not exists workout_saves_user_created_idx on public.workout_saves(user_id, created_at desc);
+alter table public.workout_saves enable row level security;
+grant select, insert, delete on public.workout_saves to authenticated;
+
+create table if not exists public.hidden_workouts (
+  workout_id uuid not null references public.workouts(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (workout_id, user_id)
+);
+create index if not exists hidden_workouts_user_idx on public.hidden_workouts(user_id);
+alter table public.hidden_workouts enable row level security;
+grant select, insert, delete on public.hidden_workouts to authenticated;
+
+create table if not exists public.workout_reactions (
+  workout_id uuid not null references public.workouts(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  reaction text not null check (reaction in ('❤️','🔥','💪','👏')),
+  created_at timestamptz not null default now(),
+  primary key (workout_id, user_id)
+);
+create index if not exists workout_reactions_workout_idx on public.workout_reactions(workout_id, created_at desc);
+alter table public.workout_reactions enable row level security;
+grant select on public.workout_reactions to anon, authenticated;
+grant insert, update, delete on public.workout_reactions to authenticated;
+
+insert into public.workout_reactions(workout_id,user_id,reaction,created_at)
+select workout_id,user_id,'❤️',created_at from public.workout_likes
+on conflict (workout_id,user_id) do nothing;
+
+alter table public.profiles add column if not exists pinned_workout_id uuid;
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname='profiles_pinned_workout_id_fkey') then
+    alter table public.profiles add constraint profiles_pinned_workout_id_fkey
+      foreign key (pinned_workout_id) references public.workouts(id) on delete set null;
+  end if;
+end $$;
+
+alter table public.direct_messages add column if not exists reply_to_id uuid;
+alter table public.direct_messages add column if not exists edited_at timestamptz;
+alter table public.direct_messages add column if not exists deleted_at timestamptz;
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname='direct_messages_reply_to_id_fkey') then
+    alter table public.direct_messages add constraint direct_messages_reply_to_id_fkey
+      foreign key (reply_to_id) references public.direct_messages(id) on delete set null;
+  end if;
+end $$;
+
+alter table public.notifications add column if not exists message_id uuid;
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname='notifications_message_id_fkey') then
+    alter table public.notifications add constraint notifications_message_id_fkey
+      foreign key (message_id) references public.direct_messages(id) on delete cascade;
+  end if;
+end $$;
+
+alter table public.notifications drop constraint if exists notifications_type_check;
+alter table public.notifications add constraint notifications_type_check
+  check (type in ('follow','workout_like','workout_comment','comment_like','direct_message','message_like','workout_reaction'));
+
+do $policies$
+begin
+  if not exists (select 1 from pg_policies where schemaname='public' and tablename='workout_saves' and policyname='workout_saves_own') then
+    create policy workout_saves_own on public.workout_saves for all to authenticated
+      using ((select auth.uid())=user_id) with check ((select auth.uid())=user_id);
+  end if;
+  if not exists (select 1 from pg_policies where schemaname='public' and tablename='hidden_workouts' and policyname='hidden_workouts_own') then
+    create policy hidden_workouts_own on public.hidden_workouts for all to authenticated
+      using ((select auth.uid())=user_id) with check ((select auth.uid())=user_id);
+  end if;
+  if not exists (select 1 from pg_policies where schemaname='public' and tablename='workout_reactions' and policyname='workout_reactions_read') then
+    create policy workout_reactions_read on public.workout_reactions for select to anon,authenticated using (true);
+  end if;
+  if not exists (select 1 from pg_policies where schemaname='public' and tablename='workout_reactions' and policyname='workout_reactions_write') then
+    create policy workout_reactions_write on public.workout_reactions for all to authenticated
+      using ((select auth.uid())=user_id) with check ((select auth.uid())=user_id);
+  end if;
+  if not exists (select 1 from pg_policies where schemaname='public' and tablename='direct_messages' and policyname='tempo_messages_sender_update_v2') then
+    create policy tempo_messages_sender_update_v2 on public.direct_messages for update to authenticated
+      using ((select auth.uid())=sender_id)
+      with check ((select auth.uid())=sender_id and sender_id<>receiver_id);
+  end if;
+end;
+$policies$;
+
+create or replace function public.notify_direct_message()
+returns trigger language plpgsql security definer set search_path='' as $$
+begin
+  insert into public.notifications(recipient_id,actor_id,type,message_id,created_at)
+  values(new.receiver_id,new.sender_id,'direct_message',new.id,now());
+  return new;
+end $$;
+
+drop trigger if exists direct_message_notify on public.direct_messages;
+create trigger direct_message_notify after insert on public.direct_messages
+for each row execute function public.notify_direct_message();
+
+create or replace function public.notify_message_like()
+returns trigger language plpgsql security definer set search_path='' as $$
+declare recipient uuid;
+begin
+  select case when m.sender_id=new.user_id then m.receiver_id else m.sender_id end
+  into recipient from public.direct_messages m where m.id=new.message_id;
+  if recipient is not null and recipient<>new.user_id then
+    insert into public.notifications(recipient_id,actor_id,type,message_id,created_at)
+    values(recipient,new.user_id,'message_like',new.message_id,now());
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists direct_message_like_notify on public.direct_message_likes;
+create trigger direct_message_like_notify after insert on public.direct_message_likes
+for each row execute function public.notify_message_like();
+
+create or replace function public.notify_workout_reaction()
+returns trigger language plpgsql security definer set search_path='' as $$
+declare recipient uuid;
+begin
+  select w.user_id into recipient from public.workouts w where w.id=new.workout_id;
+  if recipient is not null and recipient<>new.user_id then
+    insert into public.notifications(recipient_id,actor_id,type,workout_id,created_at)
+    values(recipient,new.user_id,'workout_reaction',new.workout_id,now());
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists workout_reaction_notify on public.workout_reactions;
+create trigger workout_reaction_notify after insert on public.workout_reactions
+for each row execute function public.notify_workout_reaction();
+
+commit;
+
