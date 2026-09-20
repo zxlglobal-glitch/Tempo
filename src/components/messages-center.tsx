@@ -389,8 +389,7 @@ export default function MessagesCenter({
     return <section className="card empty"><h2>Войдите, чтобы открыть сообщения</h2><Link className="underlink" href="/login">Войти →</Link></section>;
   }
 
-  if (peerId) {
-    const confirmPanel = confirmDelete && <div className="message-delete-confirm" role="dialog" aria-modal="true" aria-labelledby="message-delete-confirm-title">
+  const confirmPanel = confirmDelete && <div className="message-delete-confirm" role="dialog" aria-modal="true" aria-labelledby="message-delete-confirm-title">
     <div className="message-delete-confirm-card">
       <p className="eyebrow">ПОДТВЕРЖДЕНИЕ</p>
       <h2 id="message-delete-confirm-title">{confirmDelete.type === 'thread' ? 'Очистить переписку?' : 'Удалить диалог?'}</h2>
@@ -404,7 +403,8 @@ export default function MessagesCenter({
     </div>
   </div>;
 
-  return <section className="messages-page">
+  if (peerId) {
+    return <>{confirmPanel}<section className="messages-page">
       <div className="messages-heading">
         <Link className="underlink" href="/messages">← Все диалоги</Link>
         <div className="thread-search"><input value={threadSearch} onChange={event => setThreadSearch(event.target.value)} placeholder="Поиск в переписке" /></div>
