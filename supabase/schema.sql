@@ -914,3 +914,25 @@ using ((select auth.uid()) = user_id);
 
 commit;
 
+-- Tempo post owner comment moderation
+begin;
+
+drop policy if exists tempo_workout_comments_delete_guard_v1 on public.workout_comments;
+drop policy if exists tempo_workout_comments_delete_v1 on public.workout_comments;
+drop policy if exists tempo_workout_comments_delete_owner_or_author_v2 on public.workout_comments;
+
+create policy tempo_workout_comments_delete_owner_or_author_v2
+on public.workout_comments
+for delete to authenticated
+using (
+  (select auth.uid()) = user_id
+  or exists (
+    select 1
+    from public.workouts w
+    where w.id = workout_id
+      and w.user_id = (select auth.uid())
+  )
+);
+
+commit;
+
