@@ -11,7 +11,7 @@ export function isWorkoutVideo(file: File) {
 
 export function validatePhoto(file: File) {
   if (imageTypes.includes(file.type)) {
-    if (file.size === 0 || file.size > 5 * 1024 * 1024) throw new Error(`«${file.name}»: фото должно быть не больше 5 МБ.`);
+    if (file.size === 0 || file.size > 10 * 1024 * 1024) throw new Error(`«${file.name}»: фото должно быть не больше 10 МБ.`);
     return;
   }
   if (videoTypes.includes(file.type)) {
