@@ -1225,3 +1225,34 @@ end $$;
 
 commit;
 
+-- Tempo production policy optimizations
+begin;
+
+create index if not exists notifications_actor_idx on public.notifications(actor_id);
+create index if not exists notifications_comment_idx on public.notifications(comment_id);
+create index if not exists notifications_workout_idx on public.notifications(workout_id);
+
+drop policy if exists privacy_settings_write_own on public.privacy_settings;
+drop policy if exists privacy_settings_insert_own on public.privacy_settings;
+drop policy if exists privacy_settings_update_own on public.privacy_settings;
+create policy privacy_settings_insert_own on public.privacy_settings
+for insert to authenticated with check((select auth.uid())=user_id);
+create policy privacy_settings_update_own on public.privacy_settings
+for update to authenticated
+using((select auth.uid())=user_id) with check((select auth.uid())=user_id);
+
+create or replace function public.apply_user_block()
+returns trigger language plpgsql security definer set search_path='' as $$
+begin
+  delete from public.follows
+  where (follower_id=new.blocker_id and following_id=new.blocked_id)
+     or (follower_id=new.blocked_id and following_id=new.blocker_id);
+  return new;
+end $$;
+drop trigger if exists user_blocks_apply on public.user_blocks;
+create trigger user_blocks_apply after insert on public.user_blocks
+for each row execute function public.apply_user_block();
+revoke all on function public.apply_user_block() from public,anon,authenticated;
+
+commit;
+
