@@ -130,3 +130,44 @@
   .message-image{max-width:100%;max-height:340px}
 }
 
+/* Compact social controls */
+.icon-action{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border:1px solid var(--line);border-radius:9px;background:#fafbf8;color:var(--muted);cursor:pointer;transition:background .15s ease,color .15s ease,border-color .15s ease,transform .15s ease}
+.icon-action:hover{background:#f0f4ec;color:var(--green);border-color:#c8d5c0}
+.icon-action svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.save-action.saved{color:var(--green);background:#e9f0e4;border-color:#9eb493}
+.save-action.saved svg{fill:currentColor}
+
+.saved-edge-link{position:fixed;right:18px;top:50%;z-index:45;display:flex;align-items:center;justify-content:center;width:42px;height:42px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.96);color:var(--green);box-shadow:0 8px 24px rgba(32,49,45,.12);transform:translateY(-50%);transition:transform .15s ease,background .15s ease,color .15s ease}
+.saved-edge-link:hover{transform:translateY(-50%) translateX(-2px);background:#f1f5ed}
+.saved-edge-link.active{background:var(--green);color:#fff}
+.saved-edge-link svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round}
+.saved-edge-link.active svg{fill:currentColor}
+
+.profile-with-stats{position:relative;overflow:hidden}
+.profile-share-icon{position:relative;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border:1px solid var(--line);border-radius:9px;background:#fafbf8;color:var(--green);cursor:pointer;transition:background .15s ease,border-color .15s ease,transform .15s ease}
+.profile-share-icon:hover{background:#eef4e9;border-color:#c7d6be;transform:translateY(-1px)}
+.profile-share-icon svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tooltip-icon::after{content:attr(data-tooltip);position:absolute;left:50%;bottom:calc(100% + 9px);transform:translateX(-50%) translateY(3px);z-index:30;padding:6px 8px;border-radius:7px;background:#26332f;color:#fff;font-size:10px;line-height:1;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .15s ease,transform .15s ease}
+.tooltip-icon:hover::after,.tooltip-icon:focus-visible::after{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.profile-stats-toggle{position:absolute;right:0;top:50%;z-index:8;display:flex;align-items:center;justify-content:center;width:34px;height:64px;padding:0;border:1px solid var(--line);border-right:0;border-radius:12px 0 0 12px;background:#f5f7f2;color:var(--muted);cursor:pointer;transform:translateY(-50%);transition:background .15s ease,color .15s ease}
+.profile-stats-toggle:hover,.profile-stats-toggle.open{background:#e8efe3;color:var(--green)}
+.profile-stats-toggle svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+.profile-stats-drawer{position:absolute;top:0;right:0;z-index:7;width:min(300px,72%);height:100%;padding:22px 24px 22px 20px;border-left:1px solid var(--line);background:rgba(250,251,248,.98);box-shadow:-12px 0 30px rgba(32,49,45,.08);transform:translateX(100%);opacity:0;pointer-events:none;transition:transform .25s ease,opacity .2s ease}
+.profile-stats-drawer.open{transform:translateX(0);opacity:1;pointer-events:auto}
+.profile-stats-drawer-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.profile-stats-drawer-head strong{font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink)}
+.profile-stats-drawer-head button{border:0;background:transparent;color:var(--muted);font-size:20px;line-height:1;cursor:pointer}
+.profile-stats-drawer .profile-stats{display:grid;grid-template-columns:1fr;gap:7px;margin:0}
+.profile-stats-drawer .profile-stats span{min-width:0;padding:9px 10px;background:#fff}
+.profile-stats-drawer .profile-stats strong{max-width:none}
+
+@media(max-width:700px){
+  .saved-edge-link{right:10px;top:auto;bottom:82px;transform:none;width:40px;height:40px;border-radius:11px}
+  .saved-edge-link:hover{transform:translateX(-2px)}
+  .profile-with-stats{padding-right:42px}
+  .profile-stats-toggle{width:31px;height:58px}
+  .profile-stats-drawer{width:82%;padding:18px}
+  .tooltip-icon::after{display:none}
+}
+
