@@ -313,12 +313,12 @@ export default function MessagesCenter({
 
   async function clearConversation(targetPeerId: string, confirmText = 'Очистить всю переписку у себя? Собеседник продолжит видеть сообщения.') {
     if (!supabase || !userId) return;
-    const ids = messages
-      .filter(row =>
-        (row.sender_id === userId && row.receiver_id === targetPeerId)
-        || (row.sender_id === targetPeerId && row.receiver_id === userId)
-      )
-      .map(row => row.id);
+    const { data: rows, error: rowsError } = await supabase
+      .from('direct_messages')
+      .select('id')
+      .or(`and(sender_id.eq.${userId},receiver_id.eq.${targetPeerId}),and(sender_id.eq.${targetPeerId},receiver_id.eq.${userId})`);
+    if (rowsError) { setError(rowsError.message); return; }
+    const ids = (rows ?? []).map(row => row.id);
     if (!ids.length) return;
     if (!window.confirm(confirmText)) return;
     const { error } = await supabase.from('direct_message_hidden').upsert(
@@ -454,7 +454,6 @@ export default function MessagesCenter({
             name="body"
             maxLength={2000}
             placeholder="Написать сообщение…"
-            required
             value={draft}
             onChange={event => { setDraft(event.target.value); broadcastTyping(true); }}
             onBlur={() => broadcastTyping(false)}
