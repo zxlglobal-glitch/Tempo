@@ -1256,3 +1256,8 @@ revoke all on function public.apply_user_block() from public,anon,authenticated;
 
 commit;
 
+-- Tempo account deletion edge function migration
+begin;
+drop function if exists public.delete_own_account();
+commit;
+
