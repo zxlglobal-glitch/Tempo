@@ -58,10 +58,10 @@ export default function MessagesCenter({
   const threadChannelRef = useRef<RealtimeChannel | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  async function load() {
+  async function load(background = false) {
     if (!supabase || !userId) return;
-    setLoading(true);
-    setError('');
+    if (!background) setLoading(true);
+    if (!background) setError('');
     try {
       const { data, error } = await supabase
         .from('direct_messages')
@@ -125,12 +125,12 @@ export default function MessagesCenter({
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось загрузить сообщения.');
     } finally {
-      setLoading(false);
+      if (!background) setLoading(false);
     }
   }
 
   useEffect(() => {
-    void load();
+    void load(false);
   }, [userId, peerId]);
 
   useEffect(() => {
@@ -140,7 +140,7 @@ export default function MessagesCenter({
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'direct_messages' },
-        () => void load(),
+() => void load(true),
       )
       .subscribe();
 
@@ -240,7 +240,7 @@ export default function MessagesCenter({
         ? await supabase.from('direct_message_likes').delete().eq('message_id', messageId).eq('user_id', userId)
         : await supabase.from('direct_message_likes').insert({ message_id: messageId, user_id: userId });
       if (result.error && result.error.code !== '23505') throw result.error;
-      await load();
+      await load(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось изменить реакцию.');
     } finally {
@@ -266,7 +266,7 @@ export default function MessagesCenter({
       });
       if (error) throw error;
       formElement.reset();
-      await load();
+      await load(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось отправить сообщение.');
     } finally {
