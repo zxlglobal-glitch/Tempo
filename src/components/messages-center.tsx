@@ -53,6 +53,8 @@ export default function MessagesCenter({
   const [error, setError] = useState('');
   const [peerOnline, setPeerOnline] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
+  const [messageLikes, setMessageLikes] = useState<Record<string, { count: number; liked: boolean }>>({});
+  const [likeBusy, setLikeBusy] = useState<string | null>(null);
   const threadChannelRef = useRef<RealtimeChannel | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -101,8 +103,24 @@ export default function MessagesCenter({
         }
       }
 
+      const nextLikes: Record<string, { count: number; liked: boolean }> = {};
+      if (rows.length) {
+        const { data: likes, error: likesError } = await supabase
+          .from('direct_message_likes')
+          .select('message_id, user_id')
+          .in('message_id', rows.map(row => row.id));
+        if (likesError) throw likesError;
+        for (const like of likes ?? []) {
+          const current = nextLikes[like.message_id] ?? { count: 0, liked: false };
+          current.count += 1;
+          if (like.user_id === userId) current.liked = true;
+          nextLikes[like.message_id] = current;
+        }
+      }
+
       setMessages(rows);
       setProfiles(nextProfiles);
+      setMessageLikes(nextLikes);
       onUnreadChange?.(rows.filter(row => row.receiver_id === userId && !row.read_at).length);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось загрузить сообщения.');
@@ -213,6 +231,23 @@ export default function MessagesCenter({
     });
   }
 
+  async function toggleMessageLike(messageId: string) {
+    if (!supabase || !userId || likeBusy) return;
+    const current = messageLikes[messageId] ?? { count: 0, liked: false };
+    setLikeBusy(messageId);
+    try {
+      const result = current.liked
+        ? await supabase.from('direct_message_likes').delete().eq('message_id', messageId).eq('user_id', userId)
+        : await supabase.from('direct_message_likes').insert({ message_id: messageId, user_id: userId });
+      if (result.error && result.error.code !== '23505') throw result.error;
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не удалось изменить реакцию.');
+    } finally {
+      setLikeBusy(null);
+    }
+  }
+
   async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase || !userId || !peerId || sending) return;
@@ -259,12 +294,25 @@ export default function MessagesCenter({
       <div className="message-thread card">
         {loading ? <div className="empty">Загружаем переписку…</div> : thread.length ? thread.map(row =>
           <div key={row.id} className={`message-bubble-wrap ${row.sender_id === userId ? 'own' : ''}`}>
-            <div className="message-bubble">
-              <p>{row.body}</p>
-              <small>
-                {formatMessageTime(row.created_at)}
-                {row.sender_id === userId && row.id === lastOwnMessageId && <span className={`read-check ${row.read_at ? 'read' : ''}`} title={row.read_at ? 'Прочитано' : 'Доставлено'}>{row.read_at ? '✓✓' : '✓'}</span>}
-              </small>
+            <div className="message-bubble-shell">
+              <button
+                type="button"
+                className={`message-like-button ${messageLikes[row.id]?.liked ? 'liked' : ''}`}
+                aria-pressed={Boolean(messageLikes[row.id]?.liked)}
+                aria-label={messageLikes[row.id]?.liked ? 'Убрать лайк с сообщения' : 'Поставить лайк сообщению'}
+                disabled={likeBusy === row.id}
+                onClick={() => void toggleMessageLike(row.id)}
+              >
+                <span>{messageLikes[row.id]?.liked ? '♥' : '♡'}</span>
+                {(messageLikes[row.id]?.count ?? 0) > 0 && <b>{messageLikes[row.id]?.count}</b>}
+              </button>
+              <div className="message-bubble">
+                <p>{row.body}</p>
+                <small>
+                  {formatMessageTime(row.created_at)}
+                  {row.sender_id === userId && row.id === lastOwnMessageId && <span className={`read-check ${row.read_at ? 'read' : ''}`} title={row.read_at ? 'Прочитано' : 'Доставлено'}>{row.read_at ? '✓✓' : '✓'}</span>}
+                </small>
+              </div>
             </div>
           </div>
         ) : <div className="empty"><h2>Начните диалог</h2><p>Напишите первое сообщение.</p></div>}
