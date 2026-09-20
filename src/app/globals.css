@@ -602,3 +602,21 @@ body{overflow-x:hidden}
   .message-edit-actions .reaction,.message-edit-actions .primary{width:100%;min-width:0}
 }
 
+/* Final loading skeletons */
+.conversation-skeleton-list{display:grid;gap:10px}
+.conversation-skeleton{display:flex;align-items:center;gap:13px;padding:15px 17px}
+.conversation-skeleton>i,.person-skeleton>i{flex:0 0 44px;width:44px;height:44px;border-radius:50%;background:linear-gradient(90deg,#edf0ea 25%,#f7f8f4 50%,#edf0ea 75%);background-size:200% 100%;animation:tempoSkeleton 1.25s infinite linear}
+.conversation-skeleton>span{display:grid;gap:7px;flex:1}
+.conversation-skeleton b,.conversation-skeleton small,.person-skeleton b,.person-skeleton span,.person-skeleton small{display:block;height:9px;border-radius:999px;background:linear-gradient(90deg,#edf0ea 25%,#f7f8f4 50%,#edf0ea 75%);background-size:200% 100%;animation:tempoSkeleton 1.25s infinite linear}
+.conversation-skeleton b{width:38%}.conversation-skeleton small{width:72%}
+.thread-skeleton{display:flex;flex-direction:column;gap:10px;padding:6px}
+.thread-skeleton span{display:block;width:58%;height:46px;border-radius:15px 15px 15px 4px;background:linear-gradient(90deg,#edf0ea 25%,#f7f8f4 50%,#edf0ea 75%);background-size:200% 100%;animation:tempoSkeleton 1.25s infinite linear}
+.thread-skeleton span.own{align-self:flex-end;width:48%;border-radius:15px 15px 4px 15px}
+.person-skeleton{pointer-events:none}
+.person-skeleton>div{display:grid;gap:6px;flex:1}
+.person-skeleton b{width:48%}.person-skeleton span{width:36%}.person-skeleton small{width:58%}
+@media(max-width:420px){
+  .conversation-skeleton{padding:11px}
+  .conversation-skeleton>i,.person-skeleton>i{width:38px;height:38px;flex-basis:38px}
+}
+
