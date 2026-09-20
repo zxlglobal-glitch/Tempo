@@ -21,12 +21,18 @@ export default function WorkoutComments({ workoutId, userId, onChange }: {
   const [busy, setBusy] = useState(false);
   const locked = useRef(false);
   const [available, setAvailable] = useState(false);
+  const [workoutOwnerId, setWorkoutOwnerId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     async function load() {
       if (!supabase) { setLoading(false); return; }
+      const ownerResult = await supabase.from('workouts').select('user_id').eq('id', workoutId).maybeSingle();
+      if (!active) return;
+      if (ownerResult.error) { setError(socialError(ownerResult.error)); setAvailable(false); return; }
+      setWorkoutOwnerId(ownerResult.data?.user_id ?? null);
+
       const result = await supabase.from('workout_comments')
         .select(userId ? 'id, user_id, body, created_at, profiles:profiles!workout_comments_user_id_fkey(id, username, display_name, city, bio, avatar_path, avatar_url)' : 'id, user_id, body, created_at')
         .eq('workout_id', workoutId).order('created_at').order('id').limit(limit).returns<Comment[]>();
@@ -80,10 +86,12 @@ export default function WorkoutComments({ workoutId, userId, onChange }: {
   }
 
   async function remove(comment: Comment) {
-    if (!supabase || !userId || comment.user_id !== userId || locked.current) return;
+    const canDelete = Boolean(userId && (comment.user_id === userId || workoutOwnerId === userId));
+    if (!supabase || !userId || !canDelete || locked.current) return;
+    if (!window.confirm(comment.user_id === userId ? 'Удалить ваш комментарий?' : 'Удалить комментарий из вашей тренировки?')) return;
     locked.current = true; setBusy(true); setError('');
     try {
-      const { error } = await supabase.from('workout_comments').delete().eq('id', comment.id).eq('user_id', userId).select('id').single();
+      const { error } = await supabase.from('workout_comments').delete().eq('id', comment.id).select('id').single();
       if (error) throw error;
       setRevision(value => value + 1); onChange();
     } catch (error) { setError(socialError(error)); }
@@ -103,7 +111,7 @@ export default function WorkoutComments({ workoutId, userId, onChange }: {
       <p className="bio">{comment.body}</p>
       <div className="comment-actions">
         {userId ? <button className={`reaction ${comment.liked ? 'liked' : ''}`} aria-pressed={comment.liked} disabled={busy} onClick={() => void toggleLike(comment)}>{comment.liked ? '♥' : '♡'} {comment.likes}</button> : <Link className="reaction" href="/login">♡ {comment.likes}</Link>}
-        {comment.user_id === userId && <button className="text-button danger" disabled={busy} onClick={() => void remove(comment)}>Удалить комментарий</button>}
+        {(comment.user_id === userId || workoutOwnerId === userId) && <button className="comment-delete-button" type="button" disabled={busy} onClick={() => void remove(comment)} title="Удалить комментарий" aria-label="Удалить комментарий">Удалить</button>}
       </div>
     </article>)}
     {available && comments.length >= limit && <button className="text-button" onClick={() => setLimit(value => value + 50)}>Показать ещё комментарии</button>}
