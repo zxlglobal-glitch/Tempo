@@ -22,8 +22,37 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
   const [likersLoading, setLikersLoading] = useState(false);
   const [likersError, setLikersError] = useState('');
   const [photoIndex, setPhotoIndex] = useState<number | null>(null);
+  const [reactions, setReactions] = useState<Record<string, number>>({});
+  const [ownReaction, setOwnReaction] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [hiddenLocal, setHiddenLocal] = useState(false);
+  const [pinned, setPinned] = useState(false);
   const locked = useRef(false);
   const owner = Boolean(userId && workout.user_id === userId);
+  useEffect(() => {
+    if (!supabase) return;
+    let active = true;
+    async function loadExtras() {
+      const [reactionRows, saveRow, pinRow] = await Promise.all([
+        supabase!.from('workout_reactions').select('user_id, reaction').eq('workout_id', workout.id),
+        userId ? supabase!.from('workout_saves').select('workout_id').eq('workout_id', workout.id).eq('user_id', userId).maybeSingle() : Promise.resolve({ data: null, error: null }),
+        owner ? supabase!.from('profiles').select('pinned_workout_id').eq('id', userId!).maybeSingle() : Promise.resolve({ data: null, error: null }),
+      ]);
+      if (!active || reactionRows.error) return;
+      const map: Record<string, number> = {};
+      let mine: string | null = null;
+      for (const row of reactionRows.data ?? []) {
+        map[row.reaction] = (map[row.reaction] ?? 0) + 1;
+        if (userId && row.user_id === userId) mine = row.reaction;
+      }
+      setReactions(map); setOwnReaction(mine);
+      if (!saveRow.error) setSaved(Boolean(saveRow.data));
+      if (!pinRow.error) setPinned(pinRow.data?.pinned_workout_id === workout.id);
+    }
+    void loadExtras();
+    return () => { active = false; };
+  }, [workout.id, userId, owner, revision]);
+
   useEffect(() => {
     let active = true;
     async function load() {
@@ -105,6 +134,53 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
     finally { locked.current = false; setBusy(false); }
   }
 
+  async function setReaction(reaction: string) {
+    if (!supabase || !userId || busy) return;
+    setBusy(true); setError('');
+    try {
+      if (ownReaction === reaction) {
+        const { error } = await supabase.from('workout_reactions').delete().eq('workout_id', workout.id).eq('user_id', userId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('workout_reactions').upsert({ workout_id: workout.id, user_id: userId, reaction }, { onConflict: 'workout_id,user_id' });
+        if (error) throw error;
+      }
+      setRevision(value => value + 1);
+    } catch (error) { setError(socialError(error)); }
+    finally { setBusy(false); }
+  }
+
+  async function toggleSave() {
+    if (!supabase || !userId || busy) return;
+    setBusy(true);
+    try {
+      const result = saved
+        ? await supabase.from('workout_saves').delete().eq('workout_id', workout.id).eq('user_id', userId)
+        : await supabase.from('workout_saves').insert({ workout_id: workout.id, user_id: userId });
+      if (result.error && result.error.code !== '23505') throw result.error;
+      setSaved(!saved);
+    } catch (error) { setError(socialError(error)); }
+    finally { setBusy(false); }
+  }
+
+  async function hideWorkout() {
+    if (!supabase || !userId || owner) return;
+    const { error } = await supabase.from('hidden_workouts').upsert({ workout_id: workout.id, user_id: userId });
+    if (error) { setError(socialError(error)); return; }
+    setHiddenLocal(true);
+  }
+
+  async function togglePin() {
+    if (!supabase || !userId || !owner || busy) return;
+    setBusy(true);
+    try {
+      const { error } = await supabase.from('profiles').update({ pinned_workout_id: pinned ? null : workout.id }).eq('id', userId);
+      if (error) throw error;
+      setPinned(!pinned);
+    } catch (error) { setError(socialError(error)); }
+    finally { setBusy(false); }
+  }
+
   async function toggleLikers() {
     const next = !showLikers;
     setShowLikers(next);
@@ -156,6 +232,7 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
     finally { locked.current = false; setBusy(false); }
   }
 
+  if (hiddenLocal) return null;
   return <article className={`card workout ${detail ? 'workout-detail' : ''}`}>
     <div className="workout-top">
       <Link className="author" href={`/people/${workout.user_id}`}><ProfileAvatar profile={workout.profiles} /><div>
@@ -181,19 +258,13 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
       {!detail && <Link href={`/workouts/${workout.id}`}>Открыть тренировку →</Link>}
     </footer>
     <div className="workout-actions">
-      <div className="like-cluster">
-        {userId ? <button className={`reaction ${counts?.liked ? 'liked' : ''}`} aria-pressed={counts?.liked ?? false} disabled={busy || !counts} onClick={() => void toggleLike()}>
-          {counts?.liked ? '♥' : '♡'} <span>Нравится</span>
-        </button> : <Link className="reaction" href="/login">♡ Нравится</Link>}
-        <button className="like-summary" type="button" disabled={!counts || !counts.likes} onClick={() => void toggleLikers()} aria-label="Показать, кому понравилась тренировка">
-          <span className="like-avatars" aria-hidden="true">
-            {likerPreview.map(person => <span className="like-avatar-wrap" key={person.id}><ProfileAvatar profile={person}/></span>)}
-          </span>
-          <span className="like-summary-text">{counts?.likes ?? '—'} {counts?.likes === 1 ? 'лайк' : counts?.likes && counts.likes >= 2 && counts.likes <= 4 ? 'лайка' : 'лайков'}</span>
-        </button>
+      <div className="reaction-picker" aria-label="Реакции">
+        {(['❤️','🔥','💪','👏'] as const).map(reaction => <button key={reaction} type="button" className={`reaction reaction-emoji ${ownReaction === reaction ? 'liked' : ''}`} disabled={!userId || busy} onClick={() => void setReaction(reaction)}>{reaction}{(reactions[reaction] ?? 0) > 0 && <b>{reactions[reaction]}</b>}</button>)}
       </div>
       <Link className="reaction" href={`/workouts/${workout.id}#comments`}>Комментарии: {counts?.comments ?? '—'}</Link>
-      {owner && <><Link className="reaction" href={`/workouts/${workout.id}/edit`}>Редактировать</Link><button className="reaction danger" disabled={busy} onClick={() => void remove()}>Удалить</button></>}
+      {userId && <button className={`reaction ${saved ? 'liked' : ''}`} type="button" onClick={() => void toggleSave()}>{saved ? '🔖 Сохранено' : '🔖 Сохранить'}</button>}
+      {userId && !owner && <button className="reaction" type="button" onClick={() => void hideWorkout()}>Скрыть</button>}
+      {owner && <><button className={`reaction ${pinned ? 'liked' : ''}`} type="button" onClick={() => void togglePin()}>{pinned ? '📌 Закреплено' : '📌 Закрепить'}</button><Link className="reaction" href={`/workouts/${workout.id}/edit`}>Редактировать</Link><button className="reaction danger" disabled={busy} onClick={() => void remove()}>Удалить</button></>}
     </div>
     {showLikers && <div className="likers-panel">
       <div className="likers-heading"><strong>Понравилось</strong><button type="button" className="text-button" onClick={() => setShowLikers(false)}>Закрыть</button></div>
