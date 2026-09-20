@@ -357,11 +357,18 @@ if (isReset) {
           }
           router.push(`/people/${current.id}`);
         } else if (isNew) {
+          const title = String(form.get('title') ?? '').trim();
+          const body = String(form.get('body') ?? '').trim();
+          const selectedCategory = String(form.get('category') ?? '').trim();
+          const duration = Number(form.get('duration'));
+          if (!title) throw new Error('Добавьте название тренировки.');
+          if (!(categories as readonly string[]).includes(selectedCategory)) throw new Error('Выберите категорию из предложенного списка.');
+          if (!Number.isFinite(duration) || duration < 1 || duration > 1440) throw new Error('Укажите длительность от 1 до 1440 минут.');
           await publishWorkoutPhotos(selectedPhotos, {
             upload: file => uploadWorkoutMedia(file, current.id),
             insert: async media => {
-              const { error } = await supabase!.from('workouts').insert({ user_id: current.id, title: String(form.get('title')).trim(), body: String(form.get('body')).trim(), category: String(form.get('category')), duration: Number(form.get('duration')), photos: media.photos, videos: media.videos });
-              if (error) throw new Error(`Не удалось сохранить тренировку: ${error.message}`);
+              const { error } = await supabase!.from('workouts').insert({ user_id: current.id, title, body, category: selectedCategory, duration, photos: media.photos, videos: media.videos });
+              if (error) throw error;
             },
             remove: async paths => {
               const { error } = await supabase!.storage.from('photos').remove(paths);
@@ -406,7 +413,7 @@ if (isReset) {
       {['Все', ...categories].filter(c => c === 'Все' || c.toLowerCase().includes(categoryQuery.trim().toLowerCase())).map(c => <button aria-pressed={category === c} className={category === c ? 'selected' : ''} key={c} onClick={() => { setCategory(c); setLimit(20); }}>{c}</button>)}
     </div>
   </div>
-  <div className="feed-layout"><div>{feedWarning && <p className="notice" role="status">{feedWarning}</p>}{feedError && <div className="notice" role="alert">{feedError} <button type="button" className="text-button" onClick={() => setRevision(value => value + 1)}>Повторить загрузку</button></div>}{loading ? <div className="card empty">Загружаем тренировки…</div> : workouts.length ? <>{workouts.map(w => <WorkoutCard key={w.id} workout={w} userId={user?.id} onDeleted={onWorkoutDeleted} />)}{workouts.length >= limit && <div ref={feedSentinel} className="feed-sentinel">Загружаем ещё…</div>}</> : feedError ? null : <div className="card empty"><div className="empty-icon">↗</div><h2>Здесь начинается движение</h2><p>{category === 'Все' ? 'Пока нет тренировок. Поделитесь первой —' : 'В этой категории пока нет тренировок —'}<br/>ваш пример может вдохновить кого-то сегодня.</p><Link href="/workouts/new" className="underlink">Добавить тренировку →</Link></div>}</div><div className="right-rail"><section className="card manifesto"><p className="eyebrow">МАЛЕНЬКОЕ НАПОМИНАНИЕ</p><h2>Прогресс —<br/>это быть<br/><em>в движении.</em></h2><p>Не сравнивай свой старт<br/>с чужим финишем.</p><span>✳</span></section><p className="rail-note">TEMPO © 2026<br/>Место для твоих маленьких побед.</p></div></div></>}</>}
+  <div className="feed-layout"><div>{feedWarning && <p className="notice" role="status">{feedWarning}</p>}{feedError && <div className="notice" role="alert">{feedError} <button type="button" className="text-button" onClick={() => setRevision(value => value + 1)}>Повторить загрузку</button></div>}{loading ? <div className="card empty">Загружаем тренировки…</div> : workouts.length ? <>{workouts.map(w => <WorkoutCard key={w.id} workout={w} userId={user?.id} onDeleted={onWorkoutDeleted} />)}{workouts.length >= limit && <div ref={feedSentinel} className="feed-sentinel">Загружаем ещё…</div>}</> : feedError ? null : <div className="card empty"><div className="empty-icon">{isSaved ? '⌑' : feedMode === 'following' ? '◌' : '↗'}</div><h2>{isSaved ? 'Пока ничего не сохранено' : feedMode === 'following' ? 'В подписках пока тихо' : category === 'Все' ? 'Здесь начинается движение' : 'В этой категории пока пусто'}</h2><p>{isSaved ? 'Сохраняйте интересные тренировки через значок закладки — они появятся здесь.' : feedMode === 'following' ? 'Подпишитесь на участников TEMPO, чтобы видеть их тренировки в этой вкладке.' : category === 'Все' ? 'Пока нет тренировок. Поделитесь первой — ваш пример может вдохновить кого-то сегодня.' : 'Попробуйте другую категорию или опубликуйте первую тренировку здесь.'}</p>{isSaved ? <Link href="/" className="underlink">Перейти в ленту →</Link> : feedMode === 'following' ? <Link href="/people" className="underlink">Найти людей →</Link> : <Link href="/workouts/new" className="underlink">Добавить тренировку →</Link>}</div>}</div><div className="right-rail"><section className="card manifesto"><p className="eyebrow">МАЛЕНЬКОЕ НАПОМИНАНИЕ</p><h2>Прогресс —<br/>это быть<br/><em>в движении.</em></h2><p>Не сравнивай свой старт<br/>с чужим финишем.</p><span>✳</span></section><p className="rail-note">TEMPO © 2026<br/>Место для твоих маленьких побед.</p></div></div></>}</>}
   </main></div></div>;
 }
 function EmojiNameField({ defaultValue }: { defaultValue: string }) {

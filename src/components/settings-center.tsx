@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { supabase, displayName, profileFields, type Profile } from '@/lib/supabase';
 import { socialError } from '@/lib/social';
 import ProfileAvatar from './profile-avatar';
+import ConfirmDialog from './confirm-dialog';
 
 type NotificationPreferences = {
   follows:boolean;
@@ -140,7 +141,7 @@ export default function SettingsCenter({ userId }: { userId?: string }) {
   return <section className="settings-page">
     <div className="settings-heading"><p className="eyebrow">TEMPO</p><h1>Настройки</h1><p>Профиль, уведомления, приватность и аккаунт — в одном месте.</p></div>
     {error && <p className="notice" role="alert">{error}</p>}
-    {loading ? <div className="card empty">Загружаем настройки…</div> : <div className="settings-grid">
+    {loading ? <div className="settings-skeleton" aria-label="Загружаем настройки">{[1,2,3,4].map(item => <div className="card settings-skeleton-card" key={item}><i/><b/><span/><span/></div>)}</div> : <div className="settings-grid">
       <section className="card settings-section" id="profile">
         <div className="settings-section-head"><div><h2>Профиль</h2><p>Имя, логин, город, описание и аватар.</p></div><span>01</span></div>
         <Link className="settings-primary-link" href="/profile/edit">Редактировать профиль <b>→</b></Link>
@@ -150,8 +151,9 @@ export default function SettingsCenter({ userId }: { userId?: string }) {
         <div className="settings-section-head"><div><h2>Уведомления</h2><p>Выберите, что действительно хотите видеть.</p></div><span>02</span></div>
         <div className="settings-toggles">{notificationOptions.map(option=><label className="settings-toggle" key={option.key}>
           <span><strong>{option.title}</strong><small>{option.description}</small></span>
-          <input type="checkbox" checked={notifications[option.key]} disabled={Boolean(busy)} onChange={event=>void saveNotification(option.key,event.target.checked)} />
+          <input type="checkbox" checked={notifications[option.key]} disabled={busy === `notification-${option.key}`} onChange={event=>void saveNotification(option.key,event.target.checked)} />
           <i aria-hidden="true"/>
+          {busy === `notification-${option.key}` && <em className="settings-saving">Сохраняем…</em>}
         </label>)}</div>
       </section>
 
@@ -180,8 +182,15 @@ export default function SettingsCenter({ userId }: { userId?: string }) {
       </section>
     </div>}
 
-    {deleteConfirm && <div className="settings-confirm" role="dialog" aria-modal="true" aria-label="Удалить аккаунт">
-      <div className="settings-confirm-card"><p className="eyebrow">ВАЖНО</p><h2>Удалить аккаунт?</h2><p>Профиль и связанные данные будут удалены без возможности восстановления.</p><div><button className="reaction" type="button" onClick={()=>setDeleteConfirm(false)}>Отмена</button><button className="reaction danger" type="button" disabled={busy==='delete-account'} onClick={()=>void deleteAccount()}>{busy==='delete-account'?'Удаляем…':'Удалить навсегда'}</button></div></div>
-    </div>}
+    <ConfirmDialog
+      open={deleteConfirm}
+      eyebrow="ВАЖНО"
+      title="Удалить аккаунт?"
+      text="Профиль, тренировки, сообщения и загруженные файлы будут удалены без возможности восстановления."
+      confirmLabel="Удалить навсегда"
+      busy={busy === 'delete-account'}
+      onCancel={() => setDeleteConfirm(false)}
+      onConfirm={() => void deleteAccount()}
+    />
   </section>;
 }

@@ -6,6 +6,7 @@ import { supabase, displayName, type Profile } from '@/lib/supabase';
 import { errorMessage, socialError } from '@/lib/social';
 import ProfileAvatar from './profile-avatar';
 import EmojiPicker from './emoji-picker';
+import ConfirmDialog from './confirm-dialog';
 
 type Comment = { id: string; user_id: string; body: string; created_at: string; profiles: Profile | null; likes: number; liked: boolean };
 
@@ -22,6 +23,7 @@ export default function WorkoutComments({ workoutId, userId, onChange }: {
   const locked = useRef(false);
   const [available, setAvailable] = useState(false);
   const [workoutOwnerId, setWorkoutOwnerId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Comment | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -88,7 +90,6 @@ export default function WorkoutComments({ workoutId, userId, onChange }: {
   async function remove(comment: Comment) {
     const canDelete = Boolean(userId && (comment.user_id === userId || workoutOwnerId === userId));
     if (!supabase || !userId || !canDelete || locked.current) return;
-    if (!window.confirm(comment.user_id === userId ? 'Удалить ваш комментарий?' : 'Удалить комментарий из вашей тренировки?')) return;
     locked.current = true; setBusy(true); setError('');
     try {
       const { error } = await supabase.from('workout_comments').delete().eq('id', comment.id).select('id').single();
@@ -111,10 +112,22 @@ export default function WorkoutComments({ workoutId, userId, onChange }: {
       <p className="bio">{comment.body}</p>
       <div className="comment-actions">
         {userId ? <button className={`reaction ${comment.liked ? 'liked' : ''}`} aria-pressed={comment.liked} disabled={busy} onClick={() => void toggleLike(comment)}>{comment.liked ? '♥' : '♡'} {comment.likes}</button> : <Link className="reaction" href="/login">♡ {comment.likes}</Link>}
-        {(comment.user_id === userId || workoutOwnerId === userId) && <button className="comment-delete-button" type="button" disabled={busy} onClick={() => void remove(comment)} title="Удалить комментарий" aria-label="Удалить комментарий">Удалить</button>}
+        {(comment.user_id === userId || workoutOwnerId === userId) && <button className="comment-delete-button" type="button" disabled={busy} onClick={() => setPendingDelete(comment)} title="Удалить комментарий" aria-label="Удалить комментарий">Удалить</button>}
       </div>
     </article>)}
     {available && comments.length >= limit && <button className="text-button" onClick={() => setLimit(value => value + 50)}>Показать ещё комментарии</button>}
+    <ConfirmDialog
+      open={Boolean(pendingDelete)}
+      title="Удалить комментарий?"
+      text={pendingDelete?.user_id === userId ? 'Комментарий будет удалён без возможности восстановления.' : 'Комментарий пользователя будет удалён из вашей тренировки.'}
+      busy={busy}
+      onCancel={() => setPendingDelete(null)}
+      onConfirm={() => {
+        const comment = pendingDelete;
+        setPendingDelete(null);
+        if (comment) void remove(comment);
+      }}
+    />
     {userId ? <form onSubmit={submit}>
       <label>Ваш комментарий<div className="emoji-input-wrap"><textarea required maxLength={1000} value={body} onChange={event => setBody(event.target.value)} disabled={busy || !available} /><EmojiPicker onPick={emoji => setBody(value => (value + emoji).slice(0, 1000))} label="Добавить смайлик в комментарий" /></div></label>
       <small>{body.length} / 1000</small>

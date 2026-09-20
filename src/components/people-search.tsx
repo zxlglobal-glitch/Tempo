@@ -108,7 +108,7 @@ export default function PeopleSearch() {
     </form>
 
     {error && <div className="notice" role="alert">{error}</div>}
-    {loading ? <div className="card empty">Ищем участников…</div> : people.length ? <div className="people-grid">
+    {loading ? <div className="people-grid people-skeleton-grid">{[1,2,3,4].map(item => <div className="card person-card person-skeleton" key={item}><i/><div><b/><span/><small/></div></div>)}</div> : people.length ? <div className="people-grid">
       {people.map(person => <Link className="card person-card" key={person.id} href={`/people/${person.id}`}>
         <Avatar profile={person}/>
         <div>

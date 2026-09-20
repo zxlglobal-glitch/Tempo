@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase, displayName, profileFields, type Profile } from '@/lib/supabase';
 import { describeQueryError } from '@/lib/workout-feed';
 import ProfileAvatar from './profile-avatar';
+import ConfirmDialog from './confirm-dialog';
 
 type NotificationType = 'follow' | 'workout_like' | 'workout_comment' | 'comment_like' | 'direct_message' | 'message_like' | 'workout_reaction';
 
@@ -73,6 +74,7 @@ export default function NotificationsCenter({ userId, onUnreadChange }: { userId
   const [preferences, setPreferences] = useState<Preferences>(defaultPreferences);
   const [preferenceBusy, setPreferenceBusy] = useState<keyof Preferences | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [clearConfirm, setClearConfirm] = useState(false);
   const unread = useMemo(() => items.filter(item => !item.read_at).length, [items]);
 
   useEffect(() => { onUnreadChange?.(unread); }, [unread, onUnreadChange]);
@@ -175,7 +177,6 @@ export default function NotificationsCenter({ userId, onUnreadChange }: { userId
 
   async function deleteAll() {
     if (!supabase || !userId || !items.length || deleting) return;
-    if (!window.confirm('Удалить все уведомления? Это действие нельзя отменить.')) return;
     setDeleting('all'); setError('');
     const { error } = await supabase.from('notifications').delete().eq('recipient_id', userId);
     if (error) setError(describeQueryError(error));
@@ -188,7 +189,7 @@ export default function NotificationsCenter({ userId, onUnreadChange }: { userId
       <div><p className="eyebrow">ЧТО НОВОГО</p><h1>Уведомления</h1></div>
       <div className="notifications-toolbar">
         {unread > 0 && <button className="reaction" type="button" onClick={() => void markAllRead()}>Прочитать все</button>}
-        {items.length > 0 && <button className="reaction danger" type="button" disabled={deleting === 'all'} onClick={() => void deleteAll()}>Очистить все</button>}
+        {items.length > 0 && <button className="reaction danger" type="button" disabled={deleting === 'all'} onClick={() => setClearConfirm(true)}>Очистить все</button>}
         <button className={`notification-settings-button ${settingsOpen ? 'active' : ''}`} type="button" aria-expanded={settingsOpen} aria-label="Настройки уведомлений" title="Настройки уведомлений" onClick={() => setSettingsOpen(value => !value)}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.08A1.7 1.7 0 0 0 8.97 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3v-4h.08A1.7 1.7 0 0 0 4.6 8.97a1.7 1.7 0 0 0-.34-1.88l-.06-.06L7.03 4.2l.06.06A1.7 1.7 0 0 0 8.97 4.6 1.7 1.7 0 0 0 10 3.04V3h4v.08a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06a1.7 1.7 0 0 0-.34 1.88A1.7 1.7 0 0 0 20.96 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"/></svg>
         </button>
@@ -203,7 +204,7 @@ export default function NotificationsCenter({ userId, onUnreadChange }: { userId
           <input
             type="checkbox"
             checked={preferences[option.key]}
-            disabled={preferenceBusy !== null}
+            disabled={preferenceBusy === option.key}
             onChange={event => void updatePreference(option.key, event.target.checked)}
           />
           <i aria-hidden="true" />
@@ -213,7 +214,7 @@ export default function NotificationsCenter({ userId, onUnreadChange }: { userId
 
     {error && <p className="notice" role="alert">{error}</p>}
 
-    {loading ? <div className="card empty">Загружаем уведомления…</div> : items.length ? <div className="notifications-list">
+    {loading ? <div className="notifications-skeleton">{[1,2,3].map(item => <div className="card notification-skeleton" key={item}><i/><span><b/><small/></span></div>)}</div> : items.length ? <div className="notifications-list">
       {items.map(item => <article key={item.id} className={`card notification-item ${item.read_at ? '' : 'unread'}`}>
         <Link className="notification-main-link" href={notificationHref(item)} onClick={() => void markOneRead(item.id)}>
           <ProfileAvatar profile={item.actor} />
@@ -228,5 +229,13 @@ export default function NotificationsCenter({ userId, onUnreadChange }: { userId
         </button>
       </article>)}
     </div> : <div className="card empty"><h2>Пока тихо</h2><p>Здесь появятся реакции, комментарии, сообщения и новые подписчики.</p></div>}
+    <ConfirmDialog
+      open={clearConfirm}
+      title="Очистить уведомления?"
+      text="Все уведомления исчезнут из списка. Это действие нельзя отменить."
+      busy={deleting === 'all'}
+      onCancel={() => setClearConfirm(false)}
+      onConfirm={() => { setClearConfirm(false); void deleteAll(); }}
+    />
   </section>;
 }
