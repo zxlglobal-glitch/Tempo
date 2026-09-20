@@ -43,7 +43,7 @@ export default function WorkoutPhotoPicker({ files, onChange, disabled, existing
     <label className="upload">
       ＋ Добавить фото или видео
       <input name="media" type="file" multiple accept={PHOTO_ACCEPT} onChange={select} disabled={disabled} aria-describedby="media-help" />
-      <small id="media-help">До 6 фото · JPG, PNG, WebP · до 5 МБ. До 2 видео · MP4, WebM, MOV · до 50 МБ.</small>
+      <small id="media-help">До 6 фото · JPG, PNG, WebP · до 10 МБ. До 2 видео · MP4, WebM, MOV · до 50 МБ.</small>
     </label>
     <p className="photo-count" role="status">Фото: {photoCount}/{MAX_WORKOUT_PHOTOS} · Видео: {videoCount}/{MAX_WORKOUT_VIDEOS}</p>
     {error && <p className="photo-error" role="alert">{error}</p>}
