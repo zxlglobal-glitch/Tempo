@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { supabase, displayName, type Profile } from '@/lib/supabase';
 import { errorMessage, socialError } from '@/lib/social';
 import ProfileAvatar from './profile-avatar';
+import EmojiPicker from './emoji-picker';
 
 type Comment = { id: string; user_id: string; body: string; created_at: string; profiles: Profile | null; likes: number; liked: boolean };
 
@@ -107,7 +108,7 @@ export default function WorkoutComments({ workoutId, userId, onChange }: {
     </article>)}
     {available && comments.length >= limit && <button className="text-button" onClick={() => setLimit(value => value + 50)}>Показать ещё комментарии</button>}
     {userId ? <form onSubmit={submit}>
-      <label>Ваш комментарий<textarea required maxLength={1000} value={body} onChange={event => setBody(event.target.value)} disabled={busy || !available} /></label>
+      <label>Ваш комментарий<div className="emoji-input-wrap"><textarea required maxLength={1000} value={body} onChange={event => setBody(event.target.value)} disabled={busy || !available} /><EmojiPicker onPick={emoji => setBody(value => (value + emoji).slice(0, 1000))} label="Добавить смайлик в комментарий" /></div></label>
       <small>{body.length} / 1000</small>
       <button className="primary" disabled={busy || !available || !body.trim()}>Отправить комментарий</button>
     </form> : <p><Link className="underlink" href="/login">Войдите, чтобы комментировать и видеть имена авторов</Link></p>}
