@@ -160,7 +160,7 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
     <div className="workout-top">
       <Link className="author" href={`/people/${workout.user_id}`}><ProfileAvatar profile={workout.profiles} /><div>
         <strong>{displayName(workout.profiles)}</strong>
-        <small>{workout.profiles?.city}{workout.profiles?.city ? ' · ' : ''}{new Date(workout.created_at).toLocaleString('ru-RU')}</small>
+        <small>{workout.profiles ? `@${workout.profiles.username} · ` : ''}{workout.profiles?.city}{workout.profiles?.city ? ' · ' : ''}{new Date(workout.created_at).toLocaleString('ru-RU')}</small>
       </div></Link><span className="pill">{workout.category}</span>
     </div>
     {detail ? <h1>{workout.title}</h1> : <h2><Link href={`/workouts/${workout.id}`}>{workout.title}</Link></h2>}
