@@ -7,6 +7,7 @@ import { deleteWorkoutAndPhotos } from '@/lib/workout-mutations';
 import { errorMessage, socialError } from '@/lib/social';
 import ProfileAvatar from './profile-avatar';
 import WorkoutComments from './workout-comments';
+import ReportButton from './report-button';
 
 export default function WorkoutCard({ workout, userId, detail = false, onDeleted }: {
   workout: Workout; userId?: string; detail?: boolean; onDeleted: (notice: string) => void;
@@ -26,6 +27,7 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
   const [ownReaction, setOwnReaction] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pinned, setPinned] = useState(false);
+  const [reactionOpen, setReactionOpen] = useState(false);
   const locked = useRef(false);
   const owner = Boolean(userId && workout.user_id === userId);
   useEffect(() => {
@@ -233,10 +235,16 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
     </div>
     {detail ? <h1>{workout.title}</h1> : <h2><Link href={`/workouts/${workout.id}`}>{workout.title}</Link></h2>}
     <p className="bio">{workout.body}</p>
-    {workout.photos.length > 0 && <div className="gallery">{workout.photos.map((path, index) => <button type="button" className="gallery-item" key={path} onClick={() => setPhotoIndex(index)} aria-label={`Открыть фото ${index + 1} из ${workout.photos.length}`}>
-      <img src={photoUrl(path)} alt={`Фото тренировки «${workout.title}», ${index + 1}`} loading="lazy" />
-    </button>)}</div>}
-    {workout.videos?.length > 0 && <div className="video-gallery">{workout.videos.map((path, index) => <video key={path} className="workout-video" controls preload="metadata" playsInline src={photoUrl(path)} aria-label={`Видео тренировки ${index + 1}`} />)}</div>}
+    {workout.photos.length > 0 && <div className="workout-media-block">
+      <div className="gallery">{workout.photos.map((path, index) => <button type="button" className="gallery-item" key={path} onClick={() => setPhotoIndex(index)} aria-label={`Открыть фото ${index + 1} из ${workout.photos.length}`}>
+        <img src={photoUrl(path)} alt={`Фото тренировки «${workout.title}», ${index + 1}`} loading="lazy" />
+      </button>)}</div>
+      {workout.photos.length > 1 && <span className="media-count-badge">Фото · {workout.photos.length}</span>}
+    </div>}
+    {workout.videos?.length > 0 && <div className="video-gallery">{workout.videos.map((path, index) => <div className="workout-video-card" key={path}>
+      <video className="workout-video" controls preload="metadata" playsInline src={photoUrl(path)} aria-label={`Видео тренировки ${index + 1}`} />
+      <span className="video-badge"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z"/></svg> Видео {workout.videos.length > 1 ? `${index+1}/${workout.videos.length}` : ''}</span>
+    </div>)}</div>}
     {photoIndex !== null && workout.photos[photoIndex] && <div className="photo-lightbox" role="dialog" aria-modal="true" aria-label="Просмотр фото" onClick={() => setPhotoIndex(null)}>
       <button type="button" className="photo-lightbox-close" aria-label="Закрыть фото" onClick={() => setPhotoIndex(null)}>×</button>
       {workout.photos.length > 1 && <button type="button" className="photo-lightbox-nav photo-lightbox-prev" aria-label="Предыдущее фото" onClick={event => { event.stopPropagation(); setPhotoIndex(index => index === null ? null : (index - 1 + workout.photos.length) % workout.photos.length); }}>‹</button>}
@@ -249,24 +257,30 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
     <footer><span className="duration">◷ {workout.duration} мин</span>
       {!detail && <Link href={`/workouts/${workout.id}`}>Открыть тренировку →</Link>}
     </footer>
-    <div className="workout-actions">
-      <div className="reaction-picker" aria-label="Реакции">
-        {(['❤️','🔥','💪','👏'] as const).map(reaction => <button key={reaction} type="button" className={`reaction reaction-emoji ${ownReaction === reaction ? 'liked' : ''}`} disabled={!userId || busy} onClick={() => void setReaction(reaction)}>{reaction}{(reactions[reaction] ?? 0) > 0 && <b>{reactions[reaction]}</b>}</button>)}
+    <div className="workout-action-bar">
+      <div className="compact-reaction-wrap">
+        <button type="button" className={`compact-action-button ${ownReaction ? 'active' : ''}`} onClick={() => setReactionOpen(value => !value)} aria-expanded={reactionOpen} aria-label="Реакция">
+          <span>{ownReaction || '♡'}</span><b>{Object.values(reactions).reduce((sum,value)=>sum+value,0) || ''}</b>
+        </button>
+        {reactionOpen && <div className="compact-reaction-popover">
+          {(['❤️','🔥','💪','👏'] as const).map(reaction => <button key={reaction} type="button" className={ownReaction === reaction ? 'selected' : ''} disabled={!userId || busy} onClick={() => { void setReaction(reaction); setReactionOpen(false); }}>{reaction}<small>{reactions[reaction] ?? 0}</small></button>)}
+        </div>}
       </div>
-      <Link className="reaction" href={`/workouts/${workout.id}#comments`}>Комментарии: {counts?.comments ?? '—'}</Link>
+      <Link className="compact-action-button" href={`/workouts/${workout.id}#comments`} aria-label="Комментарии" title="Комментарии">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg><b>{counts?.comments ?? ''}</b>
+      </Link>
       {userId && <button
-        className={`icon-action save-action ${saved ? 'saved' : ''}`}
+        className={`compact-action-button save-action ${saved ? 'saved' : ''}`}
         type="button"
         aria-pressed={saved}
         aria-label={saved ? 'Убрать из сохранённых' : 'Сохранить тренировку'}
-        title={saved ? 'Убрать из сохранённых' : 'Сохранить тренировку'}
+        title={saved ? 'Убрать из сохранённых' : 'Сохранить'}
         onClick={() => void toggleSave()}
       >
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21l-6-4-6 4V4.5Z"/>
-        </svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21l-6-4-6 4V4.5Z"/></svg>
       </button>}
-      {owner && <><button className={`reaction ${pinned ? 'liked' : ''}`} type="button" onClick={() => void togglePin()}>{pinned ? '📌 Закреплено' : '📌 Закрепить'}</button><Link className="reaction" href={`/workouts/${workout.id}/edit`}>Редактировать</Link><button className="reaction danger" disabled={busy} onClick={() => void remove()}>Удалить</button></>}
+      <div className="workout-action-spacer" />
+      {owner ? <div className="workout-owner-actions"><button className={`quiet-action ${pinned ? 'active' : ''}`} type="button" onClick={() => void togglePin()}>{pinned ? 'Закреплено' : 'Закрепить'}</button><Link className="quiet-action" href={`/workouts/${workout.id}/edit`}>Редактировать</Link><button className="quiet-action danger" disabled={busy} onClick={() => void remove()}>Удалить</button></div> : <ReportButton userId={userId} targetType="workout" targetId={workout.id}/>}
     </div>
     {showLikers && <div className="likers-panel">
       <div className="likers-heading"><strong>Понравилось</strong><button type="button" className="text-button" onClick={() => setShowLikers(false)}>Закрыть</button></div>
