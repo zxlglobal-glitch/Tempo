@@ -216,7 +216,8 @@ export default function MessagesCenter({
   async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!supabase || !userId || !peerId || sending) return;
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const body = String(form.get('body') ?? '').trim();
     if (!body) return;
     setSending(true);
@@ -229,7 +230,7 @@ export default function MessagesCenter({
         body,
       });
       if (error) throw error;
-      event.currentTarget.reset();
+      formElement.reset();
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось отправить сообщение.');
