@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { avatarUrl, displayName, profileFields, supabase, type Profile } from '@/lib/supabase';
 
 type Message = {
@@ -50,6 +51,10 @@ export default function MessagesCenter({
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [peerOnline, setPeerOnline] = useState(false);
+  const [peerTyping, setPeerTyping] = useState(false);
+  const threadChannelRef = useRef<RealtimeChannel | null>(null);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function load() {
     if (!supabase || !userId) return;
@@ -84,13 +89,14 @@ export default function MessagesCenter({
           .filter(row => row.sender_id === peerId && row.receiver_id === userId && !row.read_at)
           .map(row => row.id);
         if (unreadIds.length) {
+          const readAt = new Date().toISOString();
           const { error: readError } = await supabase
             .from('direct_messages')
-            .update({ read_at: new Date().toISOString() })
+            .update({ read_at: readAt })
             .in('id', unreadIds);
           if (readError) throw readError;
           rows.forEach(row => {
-            if (unreadIds.includes(row.id)) row.read_at = new Date().toISOString();
+            if (unreadIds.includes(row.id)) row.read_at = readAt;
           });
         }
       }
@@ -125,6 +131,47 @@ export default function MessagesCenter({
     };
   }, [userId, peerId]);
 
+  useEffect(() => {
+    if (!supabase || !userId || !peerId) {
+      setPeerOnline(false);
+      setPeerTyping(false);
+      return;
+    }
+
+    const room = [userId, peerId].sort().join(':');
+    const channel = supabase.channel(`tempo-thread-${room}`, {
+      config: { presence: { key: userId } },
+    });
+    threadChannelRef.current = channel;
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        setPeerOnline(Boolean(state[peerId]?.length));
+      })
+      .on('broadcast', { event: 'typing' }, event => {
+        if (event.payload?.userId !== peerId) return;
+        setPeerTyping(Boolean(event.payload?.typing));
+        if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+        if (event.payload?.typing) {
+          typingTimerRef.current = setTimeout(() => setPeerTyping(false), 1800);
+        }
+      })
+      .subscribe(async status => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({ userId, online_at: new Date().toISOString() });
+        }
+      });
+
+    return () => {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      threadChannelRef.current = null;
+      setPeerOnline(false);
+      setPeerTyping(false);
+      void supabase?.removeChannel(channel);
+    };
+  }, [userId, peerId]);
+
   const conversations = useMemo<Conversation[]>(() => {
     if (!userId) return [];
     const byPeer = new Map<string, { last: Message; unread: number }>();
@@ -153,6 +200,18 @@ export default function MessagesCenter({
     : [];
 
   const peer = peerId ? profiles[peerId] ?? null : null;
+  const lastOwnMessageId = userId
+    ? [...thread].reverse().find(row => row.sender_id === userId)?.id ?? null
+    : null;
+
+  function broadcastTyping(typing: boolean) {
+    if (!threadChannelRef.current || !userId) return;
+    void threadChannelRef.current.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: { userId, typing },
+    });
+  }
 
   async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -162,6 +221,7 @@ export default function MessagesCenter({
     if (!body) return;
     setSending(true);
     setError('');
+    broadcastTyping(false);
     try {
       const { error } = await supabase.from('direct_messages').insert({
         sender_id: userId,
@@ -187,8 +247,11 @@ export default function MessagesCenter({
       <div className="messages-heading">
         <Link className="underlink" href="/messages">← Все диалоги</Link>
         {peer && <Link className="message-peer" href={`/people/${peer.id}`}>
-          <Avatar profile={peer}/>
-          <div><strong>{displayName(peer)}</strong><small>{peer.city || 'TEMPO'}</small></div>
+          <span className="message-peer-avatar"><Avatar profile={peer}/>{peerOnline && <i className="online-dot" aria-label="В сети"/>}</span>
+          <div>
+            <strong>{displayName(peer)}</strong>
+            <small>{peerTyping ? 'печатает…' : peerOnline ? 'в сети' : `@${peer.username}`}</small>
+          </div>
         </Link>}
       </div>
       {error && <div className="notice" role="alert">{error}</div>}
@@ -197,13 +260,24 @@ export default function MessagesCenter({
           <div key={row.id} className={`message-bubble-wrap ${row.sender_id === userId ? 'own' : ''}`}>
             <div className="message-bubble">
               <p>{row.body}</p>
-              <small>{formatMessageTime(row.created_at)}</small>
+              <small>
+                {formatMessageTime(row.created_at)}
+                {row.sender_id === userId && row.id === lastOwnMessageId && <span className={`read-check ${row.read_at ? 'read' : ''}`} title={row.read_at ? 'Прочитано' : 'Доставлено'}>{row.read_at ? '✓✓' : '✓'}</span>}
+              </small>
             </div>
           </div>
         ) : <div className="empty"><h2>Начните диалог</h2><p>Напишите первое сообщение.</p></div>}
+        {peerTyping && <div className="typing-indicator" aria-live="polite"><span/><span/><span/></div>}
       </div>
       <form className="message-composer" onSubmit={send}>
-        <textarea name="body" maxLength={2000} placeholder="Написать сообщение…" required />
+        <textarea
+          name="body"
+          maxLength={2000}
+          placeholder="Написать сообщение…"
+          required
+          onInput={() => broadcastTyping(true)}
+          onBlur={() => broadcastTyping(false)}
+        />
         <button className="primary" disabled={sending}>{sending ? 'Отправляем…' : 'Отправить'}</button>
       </form>
     </section>;
@@ -216,11 +290,11 @@ export default function MessagesCenter({
       {conversations.map(item => <Link className="card conversation-row" key={item.peer.id} href={`/messages/${item.peer.id}`}>
         <Avatar profile={item.peer}/>
         <div className="conversation-copy">
-          <div><strong>{displayName(item.peer)}</strong><small>{formatMessageTime(item.last.created_at)}</small></div>
+          <div><strong>{displayName(item.peer)} <span>@{item.peer.username}</span></strong><small>{formatMessageTime(item.last.created_at)}</small></div>
           <p>{item.last.sender_id === userId ? 'Вы: ' : ''}{item.last.body}</p>
         </div>
         {item.unread > 0 && <span className="conversation-unread">{item.unread > 99 ? '99+' : item.unread}</span>}
       </Link>)}
-    </div> : <div className="card empty"><h2>Пока нет диалогов</h2><p>Откройте профиль участника и нажмите «Написать».</p></div>}
+    </div> : <div className="card empty"><h2>Пока нет диалогов</h2><p>Найдите участника TEMPO и нажмите «Написать».</p><Link className="underlink" href="/people">Найти людей →</Link></div>}
   </section>;
 }
