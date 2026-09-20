@@ -36,6 +36,14 @@ export default function WorkoutPhotoPicker({ files, onChange, disabled, existing
     }
   }
 
+  function move(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    if (target < 0 || target >= files.length) return;
+    const next = [...files];
+    [next[index], next[target]] = [next[target], next[index]];
+    onChange(next);
+  }
+
   const photoCount = files.filter(file => !isWorkoutVideo(file)).length + existingCount;
   const videoCount = files.filter(isWorkoutVideo).length + existingVideoCount;
 
@@ -53,10 +61,15 @@ export default function WorkoutPhotoPicker({ files, onChange, disabled, existing
           ? <video src={url} controls preload="metadata" />
           : <img src={url} alt={`Превью фото ${index + 1}: ${file.name}`} />}
         <figcaption>{file.name}</figcaption>
-        <button type="button" disabled={disabled} aria-label={`Удалить ${file.name}`} onClick={() => {
-          onChange(files.filter((_, i) => i !== index));
-          setError('');
-        }}>Удалить</button>
+        <div className="media-order-controls" aria-label="Порядок медиа">
+          <button type="button" disabled={disabled || index === 0} aria-label="Переместить назад" onClick={() => move(index,-1)}>←</button>
+          <span>{index + 1}</span>
+          <button type="button" disabled={disabled || index === files.length - 1} aria-label="Переместить вперёд" onClick={() => move(index,1)}>→</button>
+          <button type="button" disabled={disabled} className="media-remove" aria-label={`Удалить ${file.name}`} onClick={() => {
+            onChange(files.filter((_, i) => i !== index));
+            setError('');
+          }}>Удалить</button>
+        </div>
       </figure>)}
     </div>
   </section>;
