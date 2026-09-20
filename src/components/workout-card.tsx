@@ -8,6 +8,7 @@ import { errorMessage, socialError } from '@/lib/social';
 import ProfileAvatar from './profile-avatar';
 import WorkoutComments from './workout-comments';
 import ReportButton from './report-button';
+import ConfirmDialog from './confirm-dialog';
 
 export default function WorkoutCard({ workout, userId, detail = false, onDeleted }: {
   workout: Workout; userId?: string; detail?: boolean; onDeleted: (notice: string) => void;
@@ -23,6 +24,7 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
   const [saved, setSaved] = useState(false);
   const [pinned, setPinned] = useState(false);
   const [reactionOpen, setReactionOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const locked = useRef(false);
   const owner = Boolean(userId && workout.user_id === userId);
   useEffect(() => {
@@ -125,7 +127,6 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
 
   async function remove() {
     if (!supabase || !owner || locked.current) return;
-    if (!window.confirm(`Удалить тренировку «${workout.title}» и её фотографии? Это действие нельзя отменить.`)) return;
     locked.current = true; setBusy(true); setError('');
     const db = supabase;
     try {
@@ -199,10 +200,18 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21l-6-4-6 4V4.5Z"/></svg>
       </button>}
       <div className="workout-action-spacer" />
-      {owner ? <div className="workout-owner-actions"><button className={`quiet-action ${pinned ? 'active' : ''}`} type="button" onClick={() => void togglePin()}>{pinned ? 'Закреплено' : 'Закрепить'}</button><Link className="quiet-action" href={`/workouts/${workout.id}/edit`}>Редактировать</Link><button className="quiet-action danger" disabled={busy} onClick={() => void remove()}>Удалить</button></div> : <ReportButton userId={userId} targetType="workout" targetId={workout.id}/>}
+      {owner ? <div className="workout-owner-actions"><button className={`quiet-action ${pinned ? 'active' : ''}`} type="button" onClick={() => void togglePin()}>{pinned ? 'Закреплено' : 'Закрепить'}</button><Link className="quiet-action" href={`/workouts/${workout.id}/edit`}>Редактировать</Link><button className="quiet-action danger" disabled={busy} onClick={() => setDeleteOpen(true)}>Удалить</button></div> : <ReportButton userId={userId} targetType="workout" targetId={workout.id}/>} 
     </div>
     {error && <p className="notice" role="alert">{error}</p>}
     {socialMessage && <p className="social-notice">{socialMessage}</p>}
     {detail && <WorkoutComments workoutId={workout.id} userId={userId} onChange={() => setRevision(value => value + 1)} />}
+    <ConfirmDialog
+      open={deleteOpen}
+      title="Удалить тренировку?"
+      text={`«${workout.title}» и все прикреплённые фото и видео будут удалены без возможности восстановления.`}
+      busy={busy}
+      onCancel={() => setDeleteOpen(false)}
+      onConfirm={() => { setDeleteOpen(false); void remove(); }}
+    />
   </article>;
 }
