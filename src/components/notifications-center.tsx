@@ -9,9 +9,10 @@ import ProfileAvatar from './profile-avatar';
 type NotificationRow = {
   id: string;
   actor_id: string;
-  type: 'follow' | 'workout_like' | 'workout_comment' | 'comment_like';
+  type: 'follow' | 'workout_like' | 'workout_comment' | 'comment_like' | 'direct_message' | 'message_like' | 'workout_reaction';
   workout_id: string | null;
   comment_id: string | null;
+  message_id: string | null;
   created_at: string;
   read_at: string | null;
 };
@@ -22,11 +23,15 @@ function notificationText(type: NotificationRow['type']) {
   if (type === 'follow') return 'подписался на вас';
   if (type === 'workout_like') return 'поставил лайк вашей тренировке';
   if (type === 'workout_comment') return 'оставил комментарий к вашей тренировке';
-  return 'поставил лайк вашему комментарию';
+  if (type === 'comment_like') return 'поставил лайк вашему комментарию';
+  if (type === 'direct_message') return 'отправил вам сообщение';
+  if (type === 'message_like') return 'поставил лайк вашему сообщению';
+  return 'отреагировал на вашу тренировку';
 }
 
 function notificationHref(item: NotificationRow) {
   if (item.type === 'follow') return `/people/${item.actor_id}`;
+  if (item.type === 'direct_message' || item.type === 'message_like') return `/messages/${item.actor_id}${item.message_id ? `#message-${item.message_id}` : ''}`;
   if (item.workout_id) return `/workouts/${item.workout_id}${item.comment_id ? '#comments' : ''}`;
   return '/';
 }
@@ -49,7 +54,7 @@ export default function NotificationsCenter({ userId, onUnreadChange }: { userId
       try {
         const { data, error } = await db
           .from('notifications')
-          .select('id, actor_id, type, workout_id, comment_id, created_at, read_at')
+          .select('id, actor_id, type, workout_id, comment_id, message_id, created_at, read_at')
           .eq('recipient_id', currentUserId)
           .order('created_at', { ascending: false })
           .limit(80);
@@ -71,7 +76,10 @@ export default function NotificationsCenter({ userId, onUnreadChange }: { userId
       }
     }
     void load();
-    return () => { active = false; };
+    const channel = db.channel(`tempo-notifications-${currentUserId}`)
+      .on('postgres_changes', { event:'INSERT', schema:'public', table:'notifications', filter:`recipient_id=eq.${currentUserId}` }, () => void load())
+      .subscribe();
+    return () => { active = false; void db.removeChannel(channel); };
   }, [userId]);
 
   async function markAllRead() {
