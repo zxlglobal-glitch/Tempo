@@ -190,6 +190,23 @@ export default function MessagesCenter({
   }
 
   useEffect(() => {
+    if (!lightbox && !editingMessage && !confirmDelete) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (lightbox) setLightbox(null);
+      else if (editingMessage && !sending) setEditingMessage(null);
+      else if (confirmDelete) setConfirmDelete(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [lightbox, editingMessage, confirmDelete, sending]);
+
+  useEffect(() => {
     if (!draftImages.length) { setDraftImageUrls([]); return; }
     const urls = draftImages.map(file => URL.createObjectURL(file));
     setDraftImageUrls(urls);
@@ -558,7 +575,7 @@ export default function MessagesCenter({
         <div>{thread.filter(row => pinnedIds.has(row.id)).slice(-3).map(row => <button type="button" key={row.id} onClick={() => document.getElementById(`message-${row.id}`)?.scrollIntoView({ behavior:'smooth', block:'center' })}>{row.body || (messageImageUrls[row.id]?.length ? 'Фото' : 'Сообщение')}</button>)}</div>
       </div>}
       <div className="message-thread card" ref={threadRef} onScroll={event => { const node = event.currentTarget; stickToBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 90; }}>
-        {loading ? <div className="empty">Загружаем переписку…</div> : visibleThread.length ? visibleThread.map((row,index) => <div key={row.id} className="message-row-group">
+        {loading ? <div className="thread-skeleton" aria-label="Загружаем переписку"><span/><span className="own"/><span/><span className="own"/></div> : visibleThread.length ? visibleThread.map((row,index) => <div key={row.id} className="message-row-group">
           {(index === 0 || dayLabel(visibleThread[index-1].created_at) !== dayLabel(row.created_at)) && <div className="message-day">{dayLabel(row.created_at)}</div>}
           <div className={`message-bubble-wrap ${row.sender_id === userId ? 'own' : ''}`}>
             <div className="message-bubble-shell">
@@ -643,7 +660,7 @@ export default function MessagesCenter({
   return <>{confirmPanel}{editPanel}{imageLightbox}<section className="messages-page">
     <div className="messages-list-heading"><div><p className="eyebrow">ЛИЧНЫЕ СООБЩЕНИЯ</p><h1>Диалоги</h1></div></div>
     {error && <div className="notice" role="alert">{error}</div>}
-    {loading ? <div className="card empty">Загружаем сообщения…</div> : conversations.length ? <div className="conversation-list">
+    {loading ? <div className="conversation-skeleton-list">{[1,2,3,4].map(item => <div className="card conversation-skeleton" key={item}><i/><span><b/><small/></span></div>)}</div> : conversations.length ? <div className="conversation-list">
       {conversations.map(item => <article className="card conversation-row conversation-row-shell" key={item.peer.id}>
         <Link className="conversation-row-link" href={`/messages/${item.peer.id}`}>
           <Avatar profile={item.peer}/>
