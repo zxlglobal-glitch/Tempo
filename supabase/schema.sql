@@ -312,3 +312,70 @@ $function$;
 
 commit;
 
+-- Tempo direct message likes
+begin;
+
+create table if not exists public.direct_message_likes (
+  message_id uuid not null references public.direct_messages(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (message_id, user_id)
+);
+
+create index if not exists direct_message_likes_message_idx
+  on public.direct_message_likes(message_id, created_at desc);
+
+alter table public.direct_message_likes enable row level security;
+grant select, insert, delete on public.direct_message_likes to authenticated;
+
+do $migration$
+begin
+  if not exists (
+    select 1 from pg_catalog.pg_policies
+    where schemaname='public' and tablename='direct_message_likes' and policyname='tempo_message_likes_read_v1'
+  ) then
+    create policy tempo_message_likes_read_v1
+      on public.direct_message_likes
+      for select to authenticated
+      using (
+        exists (
+          select 1
+          from public.direct_messages m
+          where m.id = message_id
+            and ((select auth.uid()) = m.sender_id or (select auth.uid()) = m.receiver_id)
+        )
+      );
+  end if;
+
+  if not exists (
+    select 1 from pg_catalog.pg_policies
+    where schemaname='public' and tablename='direct_message_likes' and policyname='tempo_message_likes_insert_v1'
+  ) then
+    create policy tempo_message_likes_insert_v1
+      on public.direct_message_likes
+      for insert to authenticated
+      with check (
+        (select auth.uid()) = user_id
+        and exists (
+          select 1
+          from public.direct_messages m
+          where m.id = message_id
+            and ((select auth.uid()) = m.sender_id or (select auth.uid()) = m.receiver_id)
+        )
+      );
+  end if;
+
+  if not exists (
+    select 1 from pg_catalog.pg_policies
+    where schemaname='public' and tablename='direct_message_likes' and policyname='tempo_message_likes_delete_v1'
+  ) then
+    create policy tempo_message_likes_delete_v1
+      on public.direct_message_likes
+      for delete to authenticated
+      using ((select auth.uid()) = user_id);
+  end if;
+end;
+$migration$;
+
+commit;
+
