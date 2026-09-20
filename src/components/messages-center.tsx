@@ -13,6 +13,9 @@ type Message = {
   body: string;
   created_at: string;
   read_at: string | null;
+  reply_to_id: string | null;
+  edited_at: string | null;
+  deleted_at: string | null;
 };
 
 type Conversation = {
@@ -26,6 +29,15 @@ function Avatar({ profile }: { profile: Profile | null }) {
   return src
     ? <img className="avatar" src={src} alt={`Аватар ${displayName(profile)}`} />
     : <span className="avatar initials">{displayName(profile).slice(0, 1).toUpperCase()}</span>;
+}
+
+function dayLabel(value: string) {
+  const date = new Date(value);
+  const today = new Date();
+  const yesterday = new Date(); yesterday.setDate(today.getDate() - 1);
+  if (date.toDateString() === today.toDateString()) return 'Сегодня';
+  if (date.toDateString() === yesterday.toDateString()) return 'Вчера';
+  return new Intl.DateTimeFormat('ru-RU', { day:'numeric', month:'long' }).format(date);
 }
 
 function formatMessageTime(value: string) {
@@ -52,6 +64,10 @@ export default function MessagesCenter({
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState('');
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const [threadSearch, setThreadSearch] = useState('');
+  const threadRef = useRef<HTMLDivElement | null>(null);
+  const stickToBottom = useRef(true);
   const [error, setError] = useState('');
   const [peerOnline, setPeerOnline] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
@@ -67,7 +83,7 @@ export default function MessagesCenter({
     try {
       const { data, error } = await supabase
         .from('direct_messages')
-        .select('id, sender_id, receiver_id, body, created_at, read_at')
+        .select('id, sender_id, receiver_id, body, created_at, read_at, reply_to_id, edited_at, deleted_at')
         .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
         .order('created_at', { ascending: true })
         .limit(500);
@@ -218,6 +234,15 @@ export default function MessagesCenter({
         || (row.sender_id === peerId && row.receiver_id === userId)
       )
     : [];
+  const visibleThread = threadSearch.trim()
+    ? thread.filter(row => row.body.toLowerCase().includes(threadSearch.trim().toLowerCase()))
+    : thread;
+
+  useEffect(() => {
+    const node = threadRef.current;
+    if (!node || !stickToBottom.current || threadSearch) return;
+    node.scrollTop = node.scrollHeight;
+  }, [thread.length, threadSearch]);
 
   const peer = peerId ? profiles[peerId] ?? null : null;
   function broadcastTyping(typing: boolean) {
@@ -227,6 +252,24 @@ export default function MessagesCenter({
       event: 'typing',
       payload: { userId, typing },
     });
+  }
+
+  async function editMessage(message: Message) {
+    if (!supabase || !userId || message.sender_id !== userId || message.deleted_at) return;
+    const next = window.prompt('Изменить сообщение', message.body)?.trim();
+    if (!next || next === message.body || next.length > 2000) return;
+    const { error } = await supabase.from('direct_messages').update({ body: next, edited_at: new Date().toISOString() }).eq('id', message.id).eq('sender_id', userId);
+    if (error) { setError(error.message); return; }
+    await load(true);
+  }
+
+  async function deleteMessage(message: Message) {
+    if (!supabase || !userId || message.sender_id !== userId || message.deleted_at) return;
+    if (!window.confirm('Удалить это сообщение?')) return;
+    const { error } = await supabase.from('direct_messages').update({ body: 'Сообщение удалено', deleted_at: new Date().toISOString(), edited_at: null }).eq('id', message.id).eq('sender_id', userId);
+    if (error) { setError(error.message); return; }
+    if (replyTo?.id === message.id) setReplyTo(null);
+    await load(true);
   }
 
   async function toggleMessageLike(messageId: string) {
@@ -259,9 +302,12 @@ export default function MessagesCenter({
         sender_id: userId,
         receiver_id: peerId,
         body,
+        reply_to_id: replyTo?.id ?? null,
       });
       if (error) throw error;
       setDraft('');
+      setReplyTo(null);
+      stickToBottom.current = true;
       await load(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось отправить сообщение.');
@@ -278,6 +324,7 @@ export default function MessagesCenter({
     return <section className="messages-page">
       <div className="messages-heading">
         <Link className="underlink" href="/messages">← Все диалоги</Link>
+        <div className="thread-search"><input value={threadSearch} onChange={event => setThreadSearch(event.target.value)} placeholder="Поиск в переписке" /></div>
         {peer && <Link className="message-peer" href={`/people/${peer.id}`}>
           <span className="message-peer-avatar"><Avatar profile={peer}/>{peerOnline && <i className="online-dot" aria-label="В сети"/>}</span>
           <div>
@@ -287,17 +334,20 @@ export default function MessagesCenter({
         </Link>}
       </div>
       {error && <div className="notice" role="alert">{error}</div>}
-      <div className="message-thread card">
-        {loading ? <div className="empty">Загружаем переписку…</div> : thread.length ? thread.map(row =>
-          <div key={row.id} className={`message-bubble-wrap ${row.sender_id === userId ? 'own' : ''}`}>
+      <div className="message-thread card" ref={threadRef} onScroll={event => { const node = event.currentTarget; stickToBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 90; }}>
+        {loading ? <div className="empty">Загружаем переписку…</div> : visibleThread.length ? visibleThread.map((row,index) => <div key={row.id} className="message-row-group">
+          {(index === 0 || dayLabel(visibleThread[index-1].created_at) !== dayLabel(row.created_at)) && <div className="message-day">{dayLabel(row.created_at)}</div>}
+          <div className={`message-bubble-wrap ${row.sender_id === userId ? 'own' : ''}`}>
             <div className="message-bubble-shell">
-              <div className="message-bubble">
-                <p>{row.body}</p>
+              <div className={`message-bubble ${row.deleted_at ? 'deleted' : ''}`}>
+                {row.reply_to_id && (() => { const original = thread.find(item => item.id === row.reply_to_id); return original ? <button type="button" className="message-reply-preview" onClick={() => document.getElementById(`message-${original.id}`)?.scrollIntoView({behavior:'smooth',block:'center'})}><strong>{original.sender_id === userId ? 'Вы' : displayName(peer)}</strong><span>{original.body}</span></button> : null; })()}
+                <p id={`message-${row.id}`}>{row.body}</p>
                 <small>
-                  {formatMessageTime(row.created_at)}
+                  {formatMessageTime(row.created_at)}{row.edited_at && !row.deleted_at && <span className="edited-mark"> · изменено</span>}
                   {row.sender_id === userId && <span className={`read-check ${row.read_at ? 'read' : ''}`} title={row.read_at ? 'Прочитано' : 'Отправлено'}>{row.read_at ? '✓✓' : '✓'}</span>}
                 </small>
               </div>
+              {!row.deleted_at && <div className="message-hover-actions"><button type="button" onClick={() => setReplyTo(row)}>↩</button>{row.sender_id === userId && <><button type="button" onClick={() => void editMessage(row)}>✎</button><button type="button" onClick={() => void deleteMessage(row)}>×</button></>}</div>}
               <button
                 type="button"
                 className={`message-like-button ${messageLikes[row.id]?.liked ? 'liked' : ''}`}
@@ -311,9 +361,10 @@ export default function MessagesCenter({
               </button>
             </div>
           </div>
-        ) : <div className="empty"><h2>Начните диалог</h2><p>Напишите первое сообщение.</p></div>}
+        </div>) : <div className="empty"><h2>{threadSearch ? 'Ничего не найдено' : 'Начните диалог'}</h2><p>{threadSearch ? 'Попробуйте другой запрос.' : 'Напишите первое сообщение.'}</p></div>}
         {peerTyping && <div className="typing-indicator" aria-live="polite"><span/><span/><span/></div>}
       </div>
+      {replyTo && <div className="reply-composer-preview"><div><strong>Ответ на сообщение</strong><span>{replyTo.body}</span></div><button type="button" onClick={() => setReplyTo(null)}>×</button></div>}
       <form className="message-composer" onSubmit={send}>
         <div className="emoji-input-wrap message-input-wrap">
           <textarea
