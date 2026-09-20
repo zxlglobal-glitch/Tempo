@@ -357,11 +357,18 @@ if (isReset) {
           }
           router.push(`/people/${current.id}`);
         } else if (isNew) {
+          const title = String(form.get('title') ?? '').trim();
+          const body = String(form.get('body') ?? '').trim();
+          const selectedCategory = String(form.get('category') ?? '').trim();
+          const duration = Number(form.get('duration'));
+          if (!title) throw new Error('Добавьте название тренировки.');
+          if (!(categories as readonly string[]).includes(selectedCategory)) throw new Error('Выберите категорию из предложенного списка.');
+          if (!Number.isFinite(duration) || duration < 1 || duration > 1440) throw new Error('Укажите длительность от 1 до 1440 минут.');
           await publishWorkoutPhotos(selectedPhotos, {
             upload: file => uploadWorkoutMedia(file, current.id),
             insert: async media => {
-              const { error } = await supabase!.from('workouts').insert({ user_id: current.id, title: String(form.get('title')).trim(), body: String(form.get('body')).trim(), category: String(form.get('category')), duration: Number(form.get('duration')), photos: media.photos, videos: media.videos });
-              if (error) throw new Error(`Не удалось сохранить тренировку: ${error.message}`);
+              const { error } = await supabase!.from('workouts').insert({ user_id: current.id, title, body, category: selectedCategory, duration, photos: media.photos, videos: media.videos });
+              if (error) throw error;
             },
             remove: async paths => {
               const { error } = await supabase!.storage.from('photos').remove(paths);
