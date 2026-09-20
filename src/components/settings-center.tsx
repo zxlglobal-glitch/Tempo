@@ -115,9 +115,15 @@ export default function SettingsCenter({ userId }: { userId?: string }) {
     setBusy('delete-account'); setError('');
     try {
       for (const bucket of ['avatars','photos','message-media'] as const) {
-        const { data } = await supabase.storage.from(bucket).list(userId, { limit:1000 });
-        const paths=(data ?? []).filter(item => item.name && item.name !== '.emptyFolderPlaceholder').map(item => `${userId}/${item.name}`);
-        if (paths.length) await supabase.storage.from(bucket).remove(paths);
+        while (true) {
+          const { data, error: listError } = await supabase.storage.from(bucket).list(userId, { limit:1000 });
+          if (listError) throw listError;
+          const paths=(data ?? []).filter(item => item.name && item.name !== '.emptyFolderPlaceholder').map(item => `${userId}/${item.name}`);
+          if (!paths.length) break;
+          const { error: removeError } = await supabase.storage.from(bucket).remove(paths);
+          if (removeError) throw removeError;
+          if (paths.length < 1000) break;
+        }
       }
       const { error }=await supabase.functions.invoke('delete-account', { body:{} });
       if (error) throw error;
