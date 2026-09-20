@@ -12,16 +12,11 @@ import ReportButton from './report-button';
 export default function WorkoutCard({ workout, userId, detail = false, onDeleted }: {
   workout: Workout; userId?: string; detail?: boolean; onDeleted: (notice: string) => void;
 }) {
-  const [counts, setCounts] = useState<{ likes: number; comments: number; liked: boolean } | null>(null);
+  const [counts, setCounts] = useState<{ comments: number } | null>(null);
   const [revision, setRevision] = useState(0);
   const [socialMessage, setSocialMessage] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [showLikers, setShowLikers] = useState(false);
-  const [likers, setLikers] = useState<Profile[]>([]);
-  const [likerPreview, setLikerPreview] = useState<Profile[]>([]);
-  const [likersLoading, setLikersLoading] = useState(false);
-  const [likersError, setLikersError] = useState('');
   const [photoIndex, setPhotoIndex] = useState<number | null>(null);
   const [reactions, setReactions] = useState<Record<string, number>>({});
   const [ownReaction, setOwnReaction] = useState<string | null>(null);
@@ -58,26 +53,19 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
     let active = true;
     async function load() {
       if (!supabase) return;
-      const [likes, comments, own] = await Promise.all([
-        supabase.from('workout_likes').select('*', { count: 'exact', head: true }).eq('workout_id', workout.id),
-        supabase.from('workout_comments').select('*', { count: 'exact', head: true }).eq('workout_id', workout.id),
-        userId ? supabase.from('workout_likes').select('user_id').eq('workout_id', workout.id).eq('user_id', userId).maybeSingle() : Promise.resolve({ data: null, error: null }),
-      ]);
+      const comments = await supabase.from('workout_comments').select('*', { count: 'exact', head: true }).eq('workout_id', workout.id);
       if (!active) return;
-      const issue = likes.error || comments.error || own.error;
-      if (issue) { setCounts(null); setSocialMessage(socialError(issue)); return; }
-      // A failed HEAD response can lack a JSON error body. Never show a fake zero.
-      if (likes.status >= 400 || comments.status >= 400 || likes.count === null || comments.count === null) {
+      if (comments.error || comments.status >= 400 || comments.count === null) {
         setCounts(null);
-        setSocialMessage('Счётчики недоступны. Проверьте подключение и применение миграции лайков и комментариев.');
+        setSocialMessage(socialError(comments.error ?? new Error('Счётчик комментариев недоступен.')));
         return;
       }
-      setCounts({ likes: likes.count, comments: comments.count, liked: Boolean(own.data) });
+      setCounts({ comments: comments.count });
       setSocialMessage('');
     }
     void load().catch(error => { if (active) setSocialMessage(errorMessage(error)); });
     return () => { active = false; };
-  }, [workout.id, userId, revision]);
+  }, [workout.id, revision]);
 
   useEffect(() => {
     if (photoIndex === null) return;
@@ -94,46 +82,6 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
     };
   }, [photoIndex, workout.photos.length]);
 
-  useEffect(() => {
-    if (!supabase || !counts?.likes) { setLikerPreview([]); return; }
-    let active = true;
-    const db = supabase;
-    async function loadPreview() {
-      const { data: likes, error: likesError } = await db
-        .from('workout_likes')
-        .select('user_id, created_at')
-        .eq('workout_id', workout.id)
-        .order('created_at', { ascending: false })
-        .limit(3);
-      if (likesError) throw likesError;
-      const ids = (likes ?? []).map(row => row.user_id);
-      if (!ids.length) { if (active) setLikerPreview([]); return; }
-      const { data: profiles, error: profilesError } = await db
-        .from('profiles')
-        .select(profileFields)
-        .in('id', ids)
-        .returns<Profile[]>();
-      if (profilesError) throw profilesError;
-      const byId = new Map((profiles ?? []).map(person => [person.id, person]));
-      if (active) setLikerPreview(ids.map(id => byId.get(id)).filter((person): person is Profile => Boolean(person)));
-    }
-    void loadPreview().catch(() => { if (active) setLikerPreview([]); });
-    return () => { active = false; };
-  }, [workout.id, counts?.likes, revision]);
-
-  async function toggleLike() {
-    if (!supabase || !userId || !counts || locked.current) return;
-    locked.current = true; setBusy(true); setError('');
-    try {
-      const result = counts.liked
-        ? await supabase.from('workout_likes').delete().eq('workout_id', workout.id).eq('user_id', userId)
-        : await supabase.from('workout_likes').insert({ workout_id: workout.id, user_id: userId });
-      // Another tab may already have inserted this like. Refresh actual state.
-      if (result.error && result.error.code !== '23505') throw result.error;
-      setRevision(value => value + 1);
-    } catch (error) { setError(socialError(error)); }
-    finally { locked.current = false; setBusy(false); }
-  }
 
   async function setReaction(reaction: string) {
     if (!supabase || !userId || busy) return;
@@ -173,35 +121,6 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
       setPinned(!pinned);
     } catch (error) { setError(socialError(error)); }
     finally { setBusy(false); }
-  }
-
-  async function toggleLikers() {
-    const next = !showLikers;
-    setShowLikers(next);
-    if (!next || !supabase || likersLoading) return;
-    setLikersLoading(true); setLikersError('');
-    try {
-      const { data: likes, error: likesError } = await supabase
-        .from('workout_likes')
-        .select('user_id, created_at')
-        .eq('workout_id', workout.id)
-        .order('created_at', { ascending: false });
-      if (likesError) throw likesError;
-      const ids = (likes ?? []).map(row => row.user_id);
-      if (!ids.length) { setLikers([]); return; }
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select(profileFields)
-        .in('id', ids)
-        .returns<Profile[]>();
-      if (profilesError) throw profilesError;
-      const byId = new Map((profiles ?? []).map(person => [person.id, person]));
-      setLikers(ids.map(id => byId.get(id)).filter((person): person is Profile => Boolean(person)));
-    } catch (error) {
-      setLikersError(socialError(error));
-    } finally {
-      setLikersLoading(false);
-    }
   }
 
   async function remove() {
@@ -282,10 +201,6 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
       <div className="workout-action-spacer" />
       {owner ? <div className="workout-owner-actions"><button className={`quiet-action ${pinned ? 'active' : ''}`} type="button" onClick={() => void togglePin()}>{pinned ? 'Закреплено' : 'Закрепить'}</button><Link className="quiet-action" href={`/workouts/${workout.id}/edit`}>Редактировать</Link><button className="quiet-action danger" disabled={busy} onClick={() => void remove()}>Удалить</button></div> : <ReportButton userId={userId} targetType="workout" targetId={workout.id}/>}
     </div>
-    {showLikers && <div className="likers-panel">
-      <div className="likers-heading"><strong>Понравилось</strong><button type="button" className="text-button" onClick={() => setShowLikers(false)}>Закрыть</button></div>
-      {likersLoading ? <p className="muted">Загружаем список…</p> : likersError ? <p className="notice" role="alert">{likersError}</p> : likers.length ? <div className="likers-list">{likers.map(person => <Link key={person.id} className="liker-row" href={`/people/${person.id}`}><ProfileAvatar profile={person}/><div><strong>{displayName(person)}</strong><small>{person.city || 'Город не указан'}</small></div><span>→</span></Link>)}</div> : <p className="muted">Пока никто не поставил лайк.</p>}
-    </div>}
     {error && <p className="notice" role="alert">{error}</p>}
     {socialMessage && <p className="social-notice">{socialMessage}</p>}
     {detail && <WorkoutComments workoutId={workout.id} userId={userId} onChange={() => setRevision(value => value + 1)} />}
