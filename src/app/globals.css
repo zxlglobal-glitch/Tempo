@@ -516,3 +516,20 @@ body{overflow-x:hidden}
   .people-search-form .primary{width:100%}
 }
 
+/* Notification loading polish */
+.notifications-skeleton{display:grid;gap:10px}
+.notification-skeleton{display:flex;align-items:center;gap:13px;padding:16px 18px}
+.notification-skeleton>i{flex:0 0 42px;width:42px;height:42px;border-radius:50%;background:linear-gradient(90deg,#edf0ea 25%,#f7f8f4 50%,#edf0ea 75%);background-size:200% 100%;animation:tempoSkeleton 1.25s infinite linear}
+.notification-skeleton>span{display:grid;gap:7px;flex:1}
+.notification-skeleton b,.notification-skeleton small{display:block;height:9px;border-radius:999px;background:linear-gradient(90deg,#edf0ea 25%,#f7f8f4 50%,#edf0ea 75%);background-size:200% 100%;animation:tempoSkeleton 1.25s infinite linear}
+.notification-skeleton b{width:62%}
+.notification-skeleton small{width:34%}
+@media(max-width:700px){
+  .notifications-toolbar{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+  .notifications-toolbar .reaction{padding:7px 9px;font-size:9px}
+  .notification-settings-button{width:34px;height:34px}
+  .notification-settings{padding:14px}
+  .notification-preferences{grid-template-columns:1fr}
+  .notification-skeleton{padding:14px}
+}
+
