@@ -81,8 +81,11 @@ export default function Tempo() {
     }
     void loadUnread();
     const refresh = () => void loadUnread();
+    const channel = db.channel(`tempo-unread-notifications-${currentUserId}`)
+      .on('postgres_changes', { event:'*', schema:'public', table:'notifications', filter:`recipient_id=eq.${currentUserId}` }, refresh)
+      .subscribe();
     window.addEventListener('focus', refresh);
-    return () => { active = false; window.removeEventListener('focus', refresh); };
+    return () => { active = false; window.removeEventListener('focus', refresh); void db.removeChannel(channel); };
   }, [user?.id, path]);
   useEffect(() => {
     if (!supabase || !user) { setUnreadMessages(0); return; }
@@ -99,8 +102,11 @@ export default function Tempo() {
     }
     void loadUnreadMessages();
     const refresh = () => void loadUnreadMessages();
+    const channel = db.channel(`tempo-unread-messages-${currentUserId}`)
+      .on('postgres_changes', { event:'*', schema:'public', table:'direct_messages' }, refresh)
+      .subscribe();
     window.addEventListener('focus', refresh);
-    return () => { active = false; window.removeEventListener('focus', refresh); };
+    return () => { active = false; window.removeEventListener('focus', refresh); void db.removeChannel(channel); };
   }, [user?.id, path]);
   useEffect(() => {
     setMessage(''); if (!supabase) return;
