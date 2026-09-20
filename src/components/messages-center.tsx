@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { avatarUrl, displayName, profileFields, supabase, uploadMessageImage, type Profile } from '@/lib/supabase';
+import { socialError } from '@/lib/social';
 import EmojiPicker from './emoji-picker';
 
 type Message = {
@@ -179,7 +180,7 @@ export default function MessagesCenter({
       setPinnedIds(new Set((pins ?? []).map(row => row.message_id)));
       onUnreadChange?.(rows.filter(row => row.receiver_id === userId && !row.read_at).length);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось загрузить сообщения.');
+      setError(socialError(e));
     } finally {
       if (!background) setLoading(false);
     }
@@ -319,7 +320,7 @@ export default function MessagesCenter({
     const next = window.prompt('Изменить сообщение', message.body)?.trim();
     if (!next || next === message.body || next.length > 2000) return;
     const { error } = await supabase.from('direct_messages').update({ body: next, edited_at: new Date().toISOString() }).eq('id', message.id).eq('sender_id', userId);
-    if (error) { setError(error.message); return; }
+    if (error) { setError(socialError(error)); return; }
     await load(true);
   }
 
@@ -330,7 +331,7 @@ export default function MessagesCenter({
       user_id: userId,
       hidden_at: new Date().toISOString(),
     }, { onConflict: 'message_id,user_id' });
-    if (error) { setError(error.message); return; }
+    if (error) { setError(socialError(error)); return; }
     if (replyTo?.id === message.id) setReplyTo(null);
     setMessages(current => current.filter(row => row.id !== message.id));
   }
@@ -341,14 +342,14 @@ export default function MessagesCenter({
       .from('direct_messages')
       .select('id')
       .or(`and(sender_id.eq.${userId},receiver_id.eq.${targetPeerId}),and(sender_id.eq.${targetPeerId},receiver_id.eq.${userId})`);
-    if (rowsError) { setError(rowsError.message); return; }
+    if (rowsError) { setError(socialError(rowsError)); return; }
     const ids = (rows ?? []).map(row => row.id);
     if (!ids.length) { setConfirmDelete(null); return; }
     const { error } = await supabase.from('direct_message_hidden').upsert(
       ids.map(message_id => ({ message_id, user_id: userId, hidden_at: new Date().toISOString() })),
       { onConflict: 'message_id,user_id' },
     );
-    if (error) { setError(error.message); return; }
+    if (error) { setError(socialError(error)); return; }
     setReplyTo(null);
     setThreadSearch('');
     setMessages(current => current.filter(row => !ids.includes(row.id)));
@@ -365,7 +366,7 @@ export default function MessagesCenter({
     const result = pinned
       ? await supabase.from('direct_message_pins').delete().eq('message_id', message.id).eq('user_id', userId)
       : await supabase.from('direct_message_pins').insert({ message_id: message.id, user_id: userId });
-    if (result.error && result.error.code !== '23505') { setError(result.error.message); return; }
+    if (result.error && result.error.code !== '23505') { setError(socialError(result.error)); return; }
     setPinnedIds(current => {
       const next = new Set(current);
       if (pinned) next.delete(message.id); else next.add(message.id);
@@ -385,7 +386,7 @@ export default function MessagesCenter({
       if (result.error && result.error.code !== '23505') throw result.error;
       await load(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось изменить реакцию.');
+      setError(socialError(e));
     } finally {
       setLikeBusy(null);
     }
@@ -424,7 +425,7 @@ export default function MessagesCenter({
       await load(true);
     } catch (e) {
       if (uploadedImagePaths.length) await supabase.storage.from('message-media').remove(uploadedImagePaths);
-      setError(e instanceof Error ? e.message : 'Не удалось отправить сообщение.');
+      setError(socialError(e));
     } finally {
       setUploadProgress(null);
       setSending(false);
@@ -489,14 +490,14 @@ export default function MessagesCenter({
           {(index === 0 || dayLabel(visibleThread[index-1].created_at) !== dayLabel(row.created_at)) && <div className="message-day">{dayLabel(row.created_at)}</div>}
           <div className={`message-bubble-wrap ${row.sender_id === userId ? 'own' : ''}`}>
             <div className="message-bubble-shell">
-              <div className={`message-bubble ${row.deleted_at ? 'deleted' : ''}`}>
+              <div id={`message-${row.id}`} className={`message-bubble ${row.deleted_at ? 'deleted' : ''}`}>
                 {row.reply_to_id && (() => { const original = thread.find(item => item.id === row.reply_to_id); return original ? <button type="button" className="message-reply-preview" onClick={() => document.getElementById(`message-${original.id}`)?.scrollIntoView({behavior:'smooth',block:'center'})}><strong>{original.sender_id === userId ? 'Вы' : displayName(peer)}</strong><span>{original.body}</span></button> : null; })()}
                 {!row.deleted_at && (messageImageUrls[row.id]?.length ?? 0) > 0 && <div className={`message-image-grid count-${Math.min(messageImageUrls[row.id].length,4)}`}>
                   {messageImageUrls[row.id].map((url,index) => <button type="button" className="message-image-button" key={url} onClick={() => setLightbox({ urls:messageImageUrls[row.id], index })} aria-label={`Открыть фото ${index+1}`}>
                     <img className="message-image" src={url} alt="" loading="lazy" />
                   </button>)}
                 </div>}
-                {row.body && <p id={`message-${row.id}`}>{row.body}</p>}
+                {row.body && <p>{row.body}</p>}
                 <small>
                   {formatMessageTime(row.created_at)}{row.edited_at && !row.deleted_at && <span className="edited-mark"> · изменено</span>}
                   {row.sender_id === userId && <span className={`read-check ${row.read_at ? 'read' : ''}`} title={row.read_at ? 'Прочитано' : 'Отправлено'}>{row.read_at ? '✓✓' : '✓'}</span>}
