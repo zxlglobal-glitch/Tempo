@@ -1,11 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Workout } from './supabase';
+import { socialError } from './social';
 
 export const WORKOUT_WITH_AUTHOR = '*, profiles:profiles!workouts_user_id_fkey(id, username, display_name, city, bio, avatar_path, avatar_url)';
 
 export function describeQueryError(error: unknown) {
-  const issue = error as { message?: string; code?: string };
-  return `${issue?.message || 'Проверьте соединение и попробуйте ещё раз.'}${issue?.code ? ` (${issue.code})` : ''}`;
+  return socialError(error);
 }
 
 export async function loadWorkoutFeed(db: SupabaseClient, options: {
@@ -19,10 +19,15 @@ export async function loadWorkoutFeed(db: SupabaseClient, options: {
 }) {
   let allowedIds: string[] | null = null;
   let hiddenIds: string[] = [];
+  let blockedProfileIds: string[] = [];
 
   if (options.userId) {
-    const hidden = await db.from('hidden_workouts').select('workout_id').eq('user_id', options.userId);
+    const [hidden, blocks] = await Promise.all([
+      db.from('hidden_workouts').select('workout_id').eq('user_id', options.userId),
+      db.from('user_blocks').select('blocked_id').eq('blocker_id', options.userId),
+    ]);
     if (!hidden.error) hiddenIds = (hidden.data ?? []).map(row => row.workout_id);
+    if (!blocks.error) blockedProfileIds = (blocks.data ?? []).map(row => row.blocked_id);
   }
 
   if (options.followingOnly && options.userId) {
@@ -59,7 +64,9 @@ export async function loadWorkoutFeed(db: SupabaseClient, options: {
   }
   if (result.error) throw new Error(`Не удалось загрузить тренировки. ${describeQueryError(result.error)}`);
 
-  let rows = (result.data ?? []).map(row => ({ ...row, photos: Array.isArray(row.photos) ? row.photos : [], videos: Array.isArray(row.videos) ? row.videos : [], profiles: row.profiles ?? null })).filter(row => !hiddenIds.includes(row.id));
+  let rows = (result.data ?? [])
+    .map(row => ({ ...row, photos: Array.isArray(row.photos) ? row.photos : [], videos: Array.isArray(row.videos) ? row.videos : [], profiles: row.profiles ?? null }))
+    .filter(row => !hiddenIds.includes(row.id) && !blockedProfileIds.includes(row.user_id));
   if (savedWorkoutIds) {
     const order = new Map(savedWorkoutIds.map((id, index) => [id, index]));
     rows = rows.sort((a,b) => (order.get(a.id) ?? 999999) - (order.get(b.id) ?? 999999));
