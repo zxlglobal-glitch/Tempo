@@ -257,3 +257,58 @@ $publication$;
 
 commit;
 
+-- Tempo unique usernames
+begin;
+
+update public.profiles
+set username = 'tempo_' || substr(replace(id::text, '-', ''), 1, 8)
+where username is null or btrim(username) = '';
+
+update public.profiles
+set username = lower(btrim(username));
+
+alter table public.profiles
+  alter column username set not null;
+
+alter table public.profiles
+  drop constraint if exists profiles_username_format_check;
+
+alter table public.profiles
+  add constraint profiles_username_format_check
+  check (username ~ '^[a-z0-9_]{3,24}$');
+
+create unique index if not exists profiles_username_lower_uidx
+  on public.profiles (lower(username));
+
+create index if not exists profiles_display_name_lower_idx
+  on public.profiles (lower(display_name));
+
+create or replace function private.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  requested_username text;
+begin
+  requested_username := lower(btrim(coalesce(new.raw_user_meta_data ->> 'username', '')));
+
+  if requested_username !~ '^[a-z0-9_]{3,24}$' then
+    requested_username := 'tempo_' || substr(replace(new.id::text, '-', ''), 1, 8);
+  end if;
+
+  insert into public.profiles (id, username, display_name)
+  values (
+    new.id,
+    requested_username,
+    nullif(btrim(new.raw_user_meta_data ->> 'display_name'), '')
+  )
+  on conflict (id) do nothing;
+
+  return new;
+end;
+$function$;
+
+commit;
+
