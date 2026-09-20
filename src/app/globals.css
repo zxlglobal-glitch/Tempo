@@ -452,3 +452,21 @@ body{overflow-x:hidden}
   button,.reaction,.compact-action-button{touch-action:manipulation}
 }
 
+/* Mobile navigation and composer polish */
+@media(max-width:700px){
+  aside{position:fixed;left:0;right:0;bottom:0;top:auto;z-index:80;width:100%;height:auto;min-height:64px;padding:7px max(10px,env(safe-area-inset-right)) max(7px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));border-right:0;border-top:1px solid var(--line);border-bottom:0;background:rgba(255,255,255,.96);backdrop-filter:blur(14px)}
+  aside>.logo,aside>.tagline,aside>.aside-bottom{display:none}
+  aside nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));width:100%;gap:2px;margin:0}
+  aside nav a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:0;padding:7px 2px;border-radius:9px;font-size:8px;line-height:1.1;color:#77807a}
+  aside nav a>span:last-child{display:block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  aside nav .active{background:#edf3e8;color:#37503a;font-weight:600}
+  aside .nav-icon{width:21px;height:21px;flex-basis:21px}
+  aside .nav-icon svg{width:21px;height:21px}
+  .main{margin-left:0;padding-bottom:76px}
+  .saved-edge-link{right:12px;bottom:84px;z-index:75}
+  header{position:sticky;top:0;z-index:60;background:rgba(247,248,243,.94);backdrop-filter:blur(12px)}
+  .message-thread{max-height:none;min-height:calc(100dvh - 330px)}
+  .message-composer{position:sticky;bottom:74px;z-index:35;padding:8px 0 max(4px,env(safe-area-inset-bottom));background:linear-gradient(to top,var(--paper) 70%,rgba(247,248,243,0))}
+  .reply-composer-preview,.message-images-preview,.message-upload-progress,.message-access-notice{position:relative;z-index:36}
+}
+
