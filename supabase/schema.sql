@@ -606,3 +606,116 @@ revoke all on function public.guard_direct_message_update() from public, anon, a
 
 commit;
 
+-- Tempo workout videos and message images
+begin;
+
+alter table public.workouts
+  add column if not exists videos text[] not null default '{}';
+
+alter table public.workouts
+  drop constraint if exists workouts_videos_check;
+
+alter table public.workouts
+  add constraint workouts_videos_check
+  check (cardinality(videos) <= 2);
+
+update storage.buckets
+set file_size_limit = 52428800,
+    allowed_mime_types = array['image/jpeg','image/png','image/webp','video/mp4','video/webm','video/quicktime']
+where id = 'photos';
+
+alter table public.direct_messages
+  add column if not exists image_path text;
+
+alter table public.direct_messages
+  drop constraint if exists direct_messages_body_check;
+
+alter table public.direct_messages
+  add constraint direct_messages_body_check
+  check (
+    (char_length(trim(body)) between 1 and 2000)
+    or (image_path is not null and char_length(body) <= 2000)
+  );
+
+create index if not exists direct_messages_image_path_idx on public.direct_messages(image_path);
+
+insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
+values(
+  'message-media','message-media',false,10485760,
+  array['image/jpeg','image/png','image/webp']
+)
+on conflict(id) do update set
+  public=false,
+  file_size_limit=10485760,
+  allowed_mime_types=array['image/jpeg','image/png','image/webp'];
+
+do $policies$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname='storage' and tablename='objects' and policyname='tempo_message_media_insert_v1'
+  ) then
+    create policy tempo_message_media_insert_v1
+      on storage.objects for insert to authenticated
+      with check (
+        bucket_id='message-media'
+        and name ~ ('^' || (select auth.uid())::text || '/[^/]+$')
+      );
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where schemaname='storage' and tablename='objects' and policyname='tempo_message_media_read_v1'
+  ) then
+    create policy tempo_message_media_read_v1
+      on storage.objects for select to authenticated
+      using (
+        bucket_id='message-media'
+        and exists (
+          select 1
+          from public.direct_messages m
+          where m.image_path = name
+            and ((select auth.uid()) = m.sender_id or (select auth.uid()) = m.receiver_id)
+        )
+      );
+  end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where schemaname='storage' and tablename='objects' and policyname='tempo_message_media_delete_v1'
+  ) then
+    create policy tempo_message_media_delete_v1
+      on storage.objects for delete to authenticated
+      using (
+        bucket_id='message-media'
+        and name ~ ('^' || (select auth.uid())::text || '/[^/]+$')
+      );
+  end if;
+end;
+$policies$;
+
+create or replace function public.guard_direct_message_update()
+returns trigger language plpgsql set search_path='' as $$
+begin
+  if new.sender_id is distinct from old.sender_id
+    or new.receiver_id is distinct from old.receiver_id
+    or new.created_at is distinct from old.created_at then
+    raise exception 'Message participants and creation time are immutable';
+  end if;
+
+  if (select auth.uid()) = old.receiver_id and (select auth.uid()) <> old.sender_id then
+    if new.body is distinct from old.body
+      or new.reply_to_id is distinct from old.reply_to_id
+      or new.edited_at is distinct from old.edited_at
+      or new.deleted_at is distinct from old.deleted_at
+      or new.image_path is distinct from old.image_path then
+      raise exception 'Receiver may only update read_at';
+    end if;
+  end if;
+  return new;
+end $$;
+
+revoke all on function public.guard_direct_message_update() from public, anon, authenticated;
+
+commit;
+
