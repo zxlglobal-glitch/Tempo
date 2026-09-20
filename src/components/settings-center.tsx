@@ -119,7 +119,7 @@ export default function SettingsCenter({ userId }: { userId?: string }) {
         const paths=(data ?? []).filter(item => item.name && item.name !== '.emptyFolderPlaceholder').map(item => `${userId}/${item.name}`);
         if (paths.length) await supabase.storage.from(bucket).remove(paths);
       }
-      const { error }=await supabase.rpc('delete_own_account');
+      const { error }=await supabase.functions.invoke('delete-account', { body:{} });
       if (error) throw error;
       await supabase.auth.signOut();
       router.push('/');
