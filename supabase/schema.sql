@@ -719,3 +719,154 @@ revoke all on function public.guard_direct_message_update() from public, anon, a
 
 commit;
 
+-- Tempo notification preferences and deletion
+begin;
+
+create table if not exists public.notification_preferences (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  follows boolean not null default true,
+  workout_reactions boolean not null default true,
+  workout_comments boolean not null default true,
+  comment_likes boolean not null default true,
+  direct_messages boolean not null default true,
+  message_likes boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.notification_preferences enable row level security;
+grant select, insert, update on public.notification_preferences to authenticated;
+
+drop policy if exists notification_preferences_own on public.notification_preferences;
+create policy notification_preferences_own
+on public.notification_preferences
+for all to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+drop policy if exists notifications_no_delete on public.notifications;
+drop policy if exists notifications_delete_own on public.notifications;
+create policy notifications_delete_own
+on public.notifications
+for delete to authenticated
+using ((select auth.uid()) = recipient_id);
+
+grant delete on public.notifications to authenticated;
+
+create or replace function public.notify_follow()
+returns trigger language plpgsql security definer set search_path='' as $$
+begin
+  if new.follower_id <> new.following_id
+     and coalesce((select p.follows from public.notification_preferences p where p.user_id=new.following_id), true)
+  then
+    insert into public.notifications(recipient_id,actor_id,type)
+    values(new.following_id,new.follower_id,'follow');
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.notify_workout_like()
+returns trigger language plpgsql security definer set search_path='' as $$
+declare owner_id uuid;
+begin
+  select w.user_id into owner_id from public.workouts w where w.id=new.workout_id;
+  if owner_id is not null
+     and owner_id<>new.user_id
+     and coalesce((select p.workout_reactions from public.notification_preferences p where p.user_id=owner_id), true)
+  then
+    insert into public.notifications(recipient_id,actor_id,type,workout_id)
+    values(owner_id,new.user_id,'workout_like',new.workout_id);
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.notify_workout_reaction()
+returns trigger language plpgsql security definer set search_path='' as $$
+declare owner_id uuid;
+begin
+  select w.user_id into owner_id from public.workouts w where w.id=new.workout_id;
+  if owner_id is not null
+     and owner_id<>new.user_id
+     and coalesce((select p.workout_reactions from public.notification_preferences p where p.user_id=owner_id), true)
+  then
+    insert into public.notifications(recipient_id,actor_id,type,workout_id,created_at)
+    values(owner_id,new.user_id,'workout_reaction',new.workout_id,now());
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.notify_workout_comment()
+returns trigger language plpgsql security definer set search_path='' as $$
+declare owner_id uuid;
+begin
+  select w.user_id into owner_id from public.workouts w where w.id=new.workout_id;
+  if owner_id is not null
+     and owner_id<>new.user_id
+     and coalesce((select p.workout_comments from public.notification_preferences p where p.user_id=owner_id), true)
+  then
+    insert into public.notifications(recipient_id,actor_id,type,workout_id,comment_id)
+    values(owner_id,new.user_id,'workout_comment',new.workout_id,new.id);
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.notify_comment_like()
+returns trigger language plpgsql security definer set search_path='' as $$
+declare comment_owner uuid;
+declare target_workout uuid;
+begin
+  select c.user_id,c.workout_id into comment_owner,target_workout
+  from public.workout_comments c where c.id=new.comment_id;
+  if comment_owner is not null
+     and comment_owner<>new.user_id
+     and coalesce((select p.comment_likes from public.notification_preferences p where p.user_id=comment_owner), true)
+  then
+    insert into public.notifications(recipient_id,actor_id,type,workout_id,comment_id)
+    values(comment_owner,new.user_id,'comment_like',target_workout,new.comment_id);
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.notify_direct_message()
+returns trigger language plpgsql security definer set search_path='' as $$
+begin
+  if coalesce((select p.direct_messages from public.notification_preferences p where p.user_id=new.receiver_id), true)
+  then
+    insert into public.notifications(recipient_id,actor_id,type,message_id,created_at)
+    values(new.receiver_id,new.sender_id,'direct_message',new.id,now());
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.notify_message_like()
+returns trigger language plpgsql security definer set search_path='' as $$
+declare recipient uuid;
+begin
+  select case when m.sender_id=new.user_id then m.receiver_id else m.sender_id end
+  into recipient from public.direct_messages m where m.id=new.message_id;
+  if recipient is not null
+     and recipient<>new.user_id
+     and coalesce((select p.message_likes from public.notification_preferences p where p.user_id=recipient), true)
+  then
+    insert into public.notifications(recipient_id,actor_id,type,message_id,created_at)
+    values(recipient,new.user_id,'message_like',new.message_id,now());
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.notify_follow() from public,anon,authenticated;
+revoke all on function public.notify_workout_like() from public,anon,authenticated;
+revoke all on function public.notify_workout_reaction() from public,anon,authenticated;
+revoke all on function public.notify_workout_comment() from public,anon,authenticated;
+revoke all on function public.notify_comment_like() from public,anon,authenticated;
+revoke all on function public.notify_direct_message() from public,anon,authenticated;
+revoke all on function public.notify_message_like() from public,anon,authenticated;
+
+commit;
+
