@@ -86,6 +86,8 @@ export default function MessagesCenter({
   const [messageLikes, setMessageLikes] = useState<Record<string, { count: number; liked: boolean }>>({});
   const [likeBusy, setLikeBusy] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ type:'thread'|'conversation'; peerId:string; peerName:string } | null>(null);
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [editBody, setEditBody] = useState('');
   const threadChannelRef = useRef<RealtimeChannel | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -353,12 +355,29 @@ export default function MessagesCenter({
     });
   }
 
-  async function editMessage(message: Message) {
-    if (!supabase || !userId || message.sender_id !== userId || message.deleted_at) return;
-    const next = window.prompt('Изменить сообщение', message.body)?.trim();
-    if (!next || next === message.body || next.length > 2000) return;
-    const { error } = await supabase.from('direct_messages').update({ body: next, edited_at: new Date().toISOString() }).eq('id', message.id).eq('sender_id', userId);
+  function openEditMessage(message: Message) {
+    if (!userId || message.sender_id !== userId || message.deleted_at) return;
+    setEditingMessage(message);
+    setEditBody(message.body);
+    setContextMessageId(null);
+  }
+
+  async function saveEditedMessage() {
+    if (!supabase || !userId || !editingMessage) return;
+    const next = editBody.trim();
+    if (!next || next === editingMessage.body || next.length > 2000) {
+      setEditingMessage(null);
+      return;
+    }
+    setSending(true); setError('');
+    const { error } = await supabase.from('direct_messages')
+      .update({ body: next, edited_at: new Date().toISOString() })
+      .eq('id', editingMessage.id)
+      .eq('sender_id', userId);
+    setSending(false);
     if (error) { setError(socialError(error)); return; }
+    setEditingMessage(null);
+    setEditBody('');
     await load(true);
   }
 
@@ -488,6 +507,21 @@ export default function MessagesCenter({
     </div>
   </div>;
 
+  const editPanel = editingMessage && <div className="message-edit-overlay" role="dialog" aria-modal="true" aria-labelledby="message-edit-title" onMouseDown={event => {
+    if (event.target === event.currentTarget && !sending) setEditingMessage(null);
+  }}>
+    <div className="message-edit-card">
+      <p className="eyebrow">РЕДАКТИРОВАНИЕ</p>
+      <h2 id="message-edit-title">Изменить сообщение</h2>
+      <textarea autoFocus maxLength={2000} value={editBody} onChange={event => setEditBody(event.target.value)} />
+      <div className="message-edit-meta"><span>{editBody.length} / 2000</span></div>
+      <div className="message-edit-actions">
+        <button type="button" className="reaction" disabled={sending} onClick={() => setEditingMessage(null)}>Отмена</button>
+        <button type="button" className="primary" disabled={sending || !editBody.trim()} onClick={() => void saveEditedMessage()}>{sending ? 'Сохраняем…' : 'Сохранить'}</button>
+      </div>
+    </div>
+  </div>;
+
   const imageLightbox = lightbox && <div className="message-lightbox" role="dialog" aria-modal="true" onClick={() => setLightbox(null)}
     onTouchStart={event => { lightboxTouchStart.current = event.touches[0]?.clientX ?? null; }}
     onTouchEnd={event => {
@@ -505,7 +539,7 @@ export default function MessagesCenter({
   </div>;
 
   if (peerId) {
-    return <>{confirmPanel}{imageLightbox}<section className="messages-page">
+    return <>{confirmPanel}{editPanel}{imageLightbox}<section className="messages-page">
       <div className="messages-heading">
         <Link className="underlink" href="/messages">← Все диалоги</Link>
         <div className="thread-search"><input value={threadSearch} onChange={event => setThreadSearch(event.target.value)} placeholder="Поиск в переписке" /></div>
@@ -546,7 +580,7 @@ export default function MessagesCenter({
                 {contextMessageId === row.id && <div className="message-context-menu">
                   <button type="button" onClick={() => { setReplyTo(row); setContextMessageId(null); }}>Ответить</button>
                   <button type="button" onClick={() => void togglePin(row)}>{pinnedIds.has(row.id) ? 'Открепить' : 'Закрепить'}</button>
-                  {row.sender_id === userId && <button type="button" onClick={() => { setContextMessageId(null); void editMessage(row); }}>Редактировать</button>}
+                  {row.sender_id === userId && <button type="button" onClick={() => openEditMessage(row)}>Редактировать</button>}
                   <button type="button" className="danger" onClick={() => { setContextMessageId(null); void deleteMessageForMe(row); }}>Удалить у себя</button>
                 </div>}
               </div>}
@@ -606,7 +640,7 @@ export default function MessagesCenter({
     </section></>;
   }
 
-  return <>{confirmPanel}{imageLightbox}<section className="messages-page">
+  return <>{confirmPanel}{editPanel}{imageLightbox}<section className="messages-page">
     <div className="messages-list-heading"><div><p className="eyebrow">ЛИЧНЫЕ СООБЩЕНИЯ</p><h1>Диалоги</h1></div></div>
     {error && <div className="notice" role="alert">{error}</div>}
     {loading ? <div className="card empty">Загружаем сообщения…</div> : conversations.length ? <div className="conversation-list">
