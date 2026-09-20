@@ -13,7 +13,7 @@ export async function commitWorkoutEdit(original: string[], retained: string[], 
   if (retained.some(path => !original.includes(path))) throw new Error('Неверный список фотографий. Обновите страницу.');
   await publishWorkoutPhotos(files, {
     upload: actions.upload,
-    insert: paths => actions.update([...retained, ...paths]),
+    insert: media => actions.update([...retained, ...media.photos]),
     remove: actions.remove,
   });
   const discarded = original.filter(path => !retained.includes(path));
