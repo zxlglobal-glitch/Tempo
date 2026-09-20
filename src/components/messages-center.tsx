@@ -17,6 +17,7 @@ type Message = {
   edited_at: string | null;
   deleted_at: string | null;
   image_path: string | null;
+  image_paths: string[];
 };
 
 type Conversation = {
@@ -65,9 +66,14 @@ export default function MessagesCenter({
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState('');
-  const [draftImage, setDraftImage] = useState<File | null>(null);
-  const [draftImageUrl, setDraftImageUrl] = useState('');
-  const [messageImageUrls, setMessageImageUrls] = useState<Record<string,string>>({});
+  const [draftImages, setDraftImages] = useState<File[]>([]);
+  const [draftImageUrls, setDraftImageUrls] = useState<string[]>([]);
+  const [messageImageUrls, setMessageImageUrls] = useState<Record<string,string[]>>({});
+  const [uploadProgress, setUploadProgress] = useState<{ current:number; total:number } | null>(null);
+  const [contextMessageId, setContextMessageId] = useState<string | null>(null);
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
+  const [lightbox, setLightbox] = useState<{ urls:string[]; index:number } | null>(null);
+  const lightboxTouchStart = useRef<number | null>(null);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [threadSearch, setThreadSearch] = useState('');
   const threadRef = useRef<HTMLDivElement | null>(null);
@@ -88,7 +94,7 @@ export default function MessagesCenter({
     try {
       const { data, error } = await supabase
         .from('direct_messages')
-        .select('id, sender_id, receiver_id, body, created_at, read_at, reply_to_id, edited_at, deleted_at, image_path')
+        .select('id, sender_id, receiver_id, body, created_at, read_at, reply_to_id, edited_at, deleted_at, image_path, image_paths')
         .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
         .order('created_at', { ascending: true })
         .limit(500);
@@ -148,17 +154,29 @@ export default function MessagesCenter({
         }
       }
 
-      const nextImageUrls: Record<string,string> = {};
+      const nextImageUrls: Record<string,string[]> = {};
       for (const row of rows) {
-        if (!row.image_path) continue;
-        const { data: signed, error: signedError } = await supabase.storage.from('message-media').createSignedUrl(row.image_path, 3600);
-        if (!signedError && signed?.signedUrl) nextImageUrls[row.id] = signed.signedUrl;
+        const paths = row.image_paths?.length ? row.image_paths : row.image_path ? [row.image_path] : [];
+        if (!paths.length) continue;
+        const urls: string[] = [];
+        for (const path of paths) {
+          const { data: signed, error: signedError } = await supabase.storage.from('message-media').createSignedUrl(path, 3600);
+          if (!signedError && signed?.signedUrl) urls.push(signed.signedUrl);
+        }
+        if (urls.length) nextImageUrls[row.id] = urls;
       }
 
-      setMessages(rows);
+      const { data: pins, error: pinsError } = await supabase
+        .from('direct_message_pins')
+        .select('message_id')
+        .eq('user_id', userId);
+      if (pinsError) throw pinsError;
+
+      setMessages(rows.map(row => ({ ...row, image_paths: row.image_paths ?? [] })));
       setProfiles(nextProfiles);
       setMessageLikes(nextLikes);
       setMessageImageUrls(nextImageUrls);
+      setPinnedIds(new Set((pins ?? []).map(row => row.message_id)));
       onUnreadChange?.(rows.filter(row => row.receiver_id === userId && !row.read_at).length);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось загрузить сообщения.');
@@ -168,11 +186,11 @@ export default function MessagesCenter({
   }
 
   useEffect(() => {
-    if (!draftImage) { setDraftImageUrl(''); return; }
-    const url = URL.createObjectURL(draftImage);
-    setDraftImageUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [draftImage]);
+    if (!draftImages.length) { setDraftImageUrls([]); return; }
+    const urls = draftImages.map(file => URL.createObjectURL(file));
+    setDraftImageUrls(urls);
+    return () => urls.forEach(url => URL.revokeObjectURL(url));
+  }, [draftImages]);
 
   useEffect(() => {
     void load(false);
@@ -195,6 +213,11 @@ export default function MessagesCenter({
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'direct_message_hidden', filter: `user_id=eq.${userId}` },
+        () => void load(true),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'direct_message_pins', filter: `user_id=eq.${userId}` },
         () => void load(true),
       )
       .subscribe();
@@ -336,6 +359,21 @@ export default function MessagesCenter({
     await clearConversation(targetPeerId);
   }
 
+  async function togglePin(message: Message) {
+    if (!supabase || !userId) return;
+    const pinned = pinnedIds.has(message.id);
+    const result = pinned
+      ? await supabase.from('direct_message_pins').delete().eq('message_id', message.id).eq('user_id', userId)
+      : await supabase.from('direct_message_pins').insert({ message_id: message.id, user_id: userId });
+    if (result.error && result.error.code !== '23505') { setError(result.error.message); return; }
+    setPinnedIds(current => {
+      const next = new Set(current);
+      if (pinned) next.delete(message.id); else next.add(message.id);
+      return next;
+    });
+    setContextMessageId(null);
+  }
+
   async function toggleMessageLike(messageId: string) {
     if (!supabase || !userId || likeBusy) return;
     const current = messageLikes[messageId] ?? { count: 0, liked: false };
@@ -357,30 +395,38 @@ export default function MessagesCenter({
     event.preventDefault();
     if (!supabase || !userId || !peerId || sending) return;
     const body = draft.trim();
-    if (!body && !draftImage) return;
+    if (!body && !draftImages.length) return;
     setSending(true);
     setError('');
     broadcastTyping(false);
-    let uploadedImagePath: string | null = null;
+    const uploadedImagePaths: string[] = [];
     try {
-      if (draftImage) uploadedImagePath = await uploadMessageImage(draftImage, userId);
+      if (draftImages.length) {
+        setUploadProgress({ current:0, total:draftImages.length });
+        for (let index=0; index<draftImages.length; index++) {
+          uploadedImagePaths.push(await uploadMessageImage(draftImages[index], userId));
+          setUploadProgress({ current:index+1, total:draftImages.length });
+        }
+      }
       const { error } = await supabase.from('direct_messages').insert({
         sender_id: userId,
         receiver_id: peerId,
         body,
         reply_to_id: replyTo?.id ?? null,
-        image_path: uploadedImagePath,
+        image_path: uploadedImagePaths[0] ?? null,
+        image_paths: uploadedImagePaths,
       });
       if (error) throw error;
       setDraft('');
-      setDraftImage(null);
+      setDraftImages([]);
       setReplyTo(null);
       stickToBottom.current = true;
       await load(true);
     } catch (e) {
-      if (uploadedImagePath) await supabase.storage.from('message-media').remove([uploadedImagePath]);
+      if (uploadedImagePaths.length) await supabase.storage.from('message-media').remove(uploadedImagePaths);
       setError(e instanceof Error ? e.message : 'Не удалось отправить сообщение.');
     } finally {
+      setUploadProgress(null);
       setSending(false);
     }
   }
@@ -403,8 +449,24 @@ export default function MessagesCenter({
     </div>
   </div>;
 
+  const imageLightbox = lightbox && <div className="message-lightbox" role="dialog" aria-modal="true" onClick={() => setLightbox(null)}
+    onTouchStart={event => { lightboxTouchStart.current = event.touches[0]?.clientX ?? null; }}
+    onTouchEnd={event => {
+      if (lightboxTouchStart.current === null) return;
+      const delta = (event.changedTouches[0]?.clientX ?? lightboxTouchStart.current) - lightboxTouchStart.current;
+      lightboxTouchStart.current = null;
+      if (Math.abs(delta) < 45) return;
+      setLightbox(current => current ? { ...current, index: delta < 0 ? Math.min(current.urls.length-1,current.index+1) : Math.max(0,current.index-1) } : null);
+    }}>
+    <button className="message-lightbox-close" type="button" onClick={() => setLightbox(null)} aria-label="Закрыть">×</button>
+    {lightbox.index > 0 && <button className="message-lightbox-nav prev" type="button" onClick={event => { event.stopPropagation(); setLightbox(current => current ? {...current,index:current.index-1}:null); }}>‹</button>}
+    <img src={lightbox.urls[lightbox.index]} alt="Фото из переписки" onClick={event => event.stopPropagation()} />
+    {lightbox.index < lightbox.urls.length-1 && <button className="message-lightbox-nav next" type="button" onClick={event => { event.stopPropagation(); setLightbox(current => current ? {...current,index:current.index+1}:null); }}>›</button>}
+    {lightbox.urls.length > 1 && <div className="message-lightbox-counter">{lightbox.index+1} / {lightbox.urls.length}</div>}
+  </div>;
+
   if (peerId) {
-    return <>{confirmPanel}<section className="messages-page">
+    return <>{confirmPanel}{imageLightbox}<section className="messages-page">
       <div className="messages-heading">
         <Link className="underlink" href="/messages">← Все диалоги</Link>
         <div className="thread-search"><input value={threadSearch} onChange={event => setThreadSearch(event.target.value)} placeholder="Поиск в переписке" /></div>
@@ -418,6 +480,10 @@ export default function MessagesCenter({
         </Link>}
       </div>
       {error && <div className="notice" role="alert">{error}</div>}
+      {thread.some(row => pinnedIds.has(row.id)) && <div className="pinned-messages-bar">
+        <span>Закреплено</span>
+        <div>{thread.filter(row => pinnedIds.has(row.id)).slice(-3).map(row => <button type="button" key={row.id} onClick={() => document.getElementById(`message-${row.id}`)?.scrollIntoView({ behavior:'smooth', block:'center' })}>{row.body || (messageImageUrls[row.id]?.length ? 'Фото' : 'Сообщение')}</button>)}</div>
+      </div>}
       <div className="message-thread card" ref={threadRef} onScroll={event => { const node = event.currentTarget; stickToBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 90; }}>
         {loading ? <div className="empty">Загружаем переписку…</div> : visibleThread.length ? visibleThread.map((row,index) => <div key={row.id} className="message-row-group">
           {(index === 0 || dayLabel(visibleThread[index-1].created_at) !== dayLabel(row.created_at)) && <div className="message-day">{dayLabel(row.created_at)}</div>}
@@ -425,14 +491,26 @@ export default function MessagesCenter({
             <div className="message-bubble-shell">
               <div className={`message-bubble ${row.deleted_at ? 'deleted' : ''}`}>
                 {row.reply_to_id && (() => { const original = thread.find(item => item.id === row.reply_to_id); return original ? <button type="button" className="message-reply-preview" onClick={() => document.getElementById(`message-${original.id}`)?.scrollIntoView({behavior:'smooth',block:'center'})}><strong>{original.sender_id === userId ? 'Вы' : displayName(peer)}</strong><span>{original.body}</span></button> : null; })()}
-                {!row.deleted_at && row.image_path && messageImageUrls[row.id] && <a className="message-image-link" href={messageImageUrls[row.id]} target="_blank" rel="noreferrer"><img className="message-image" src={messageImageUrls[row.id]} alt="Фото в сообщении" loading="lazy" /></a>}
+                {!row.deleted_at && (messageImageUrls[row.id]?.length ?? 0) > 0 && <div className={`message-image-grid count-${Math.min(messageImageUrls[row.id].length,4)}`}>
+                  {messageImageUrls[row.id].map((url,index) => <button type="button" className="message-image-button" key={url} onClick={() => setLightbox({ urls:messageImageUrls[row.id], index })} aria-label={`Открыть фото ${index+1}`}>
+                    <img className="message-image" src={url} alt="" loading="lazy" />
+                  </button>)}
+                </div>}
                 {row.body && <p id={`message-${row.id}`}>{row.body}</p>}
                 <small>
                   {formatMessageTime(row.created_at)}{row.edited_at && !row.deleted_at && <span className="edited-mark"> · изменено</span>}
                   {row.sender_id === userId && <span className={`read-check ${row.read_at ? 'read' : ''}`} title={row.read_at ? 'Прочитано' : 'Отправлено'}>{row.read_at ? '✓✓' : '✓'}</span>}
                 </small>
               </div>
-              {!row.deleted_at && <div className="message-hover-actions"><button type="button" onClick={() => setReplyTo(row)} title="Ответить">↩</button>{row.sender_id === userId && <button type="button" onClick={() => void editMessage(row)} title="Редактировать">✎</button>}<button type="button" onClick={() => void deleteMessageForMe(row)} title="Удалить у себя">×</button></div>}
+              {!row.deleted_at && <div className="message-context-wrap">
+                <button type="button" className="message-context-trigger" aria-label="Действия с сообщением" onClick={() => setContextMessageId(current => current === row.id ? null : row.id)}>•••</button>
+                {contextMessageId === row.id && <div className="message-context-menu">
+                  <button type="button" onClick={() => { setReplyTo(row); setContextMessageId(null); }}>Ответить</button>
+                  <button type="button" onClick={() => void togglePin(row)}>{pinnedIds.has(row.id) ? 'Открепить' : 'Закрепить'}</button>
+                  {row.sender_id === userId && <button type="button" onClick={() => { setContextMessageId(null); void editMessage(row); }}>Редактировать</button>}
+                  <button type="button" className="danger" onClick={() => { setContextMessageId(null); void deleteMessageForMe(row); }}>Удалить у себя</button>
+                </div>}
+              </div>}
               <button
                 type="button"
                 className={`message-like-button ${messageLikes[row.id]?.liked ? 'liked' : ''}`}
@@ -450,17 +528,24 @@ export default function MessagesCenter({
         {peerTyping && <div className="typing-indicator" aria-live="polite"><span/><span/><span/></div>}
       </div>
       {replyTo && <div className="reply-composer-preview"><div><strong>Ответ на сообщение</strong><span>{replyTo.body}</span></div><button type="button" onClick={() => setReplyTo(null)}>×</button></div>}
-      {draftImage && draftImageUrl && <div className="message-image-preview"><img src={draftImageUrl} alt="Фото для отправки" /><div><strong>{draftImage.name}</strong><span>{Math.max(1, Math.round(draftImage.size/1024))} КБ</span></div><button type="button" onClick={() => setDraftImage(null)}>×</button></div>}
+      {draftImages.length > 0 && <div className="message-images-preview">
+        {draftImages.map((file,index) => <figure key={`${file.name}-${file.lastModified}-${index}`}>
+          {draftImageUrls[index] && <img src={draftImageUrls[index]} alt="" />}
+          <button type="button" onClick={() => setDraftImages(current => current.filter((_,i) => i !== index))} aria-label="Убрать фото">×</button>
+        </figure>)}
+      </div>}
+      {uploadProgress && <div className="message-upload-progress"><span style={{ width:`${Math.round(uploadProgress.current/uploadProgress.total*100)}%` }} /><small>Загружаем фото {uploadProgress.current}/{uploadProgress.total}</small></div>}
       <form className="message-composer" onSubmit={send}>
         <div className="message-attachment-control">
           <label className="message-attachment-button" title="Добавить фото">
             <span aria-hidden="true">＋</span>
-            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={event => {
-              const file = event.currentTarget.files?.[0] ?? null;
+            <input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={event => {
+              const files = Array.from(event.currentTarget.files ?? []);
               event.currentTarget.value = '';
-              if (!file) return;
-              if (file.size > 10 * 1024 * 1024) { setError('Фото в сообщении должно быть не больше 10 МБ.'); return; }
-              setDraftImage(file); setError('');
+              if (!files.length) return;
+              if (draftImages.length + files.length > 6) { setError('В одном сообщении можно отправить до 6 фотографий.'); return; }
+              if (files.some(file => file.size > 10 * 1024 * 1024)) { setError('Каждое фото в сообщении должно быть не больше 10 МБ.'); return; }
+              setDraftImages(current => [...current, ...files]); setError('');
             }} />
           </label>
         </div>
@@ -475,12 +560,12 @@ export default function MessagesCenter({
           />
           <EmojiPicker onPick={emoji => { setDraft(value => (value + emoji).slice(0, 2000)); broadcastTyping(true); }} label="Добавить смайлик в сообщение" />
         </div>
-        <button className="primary" disabled={sending || (!draft.trim() && !draftImage)}>{sending ? 'Отправляем…' : 'Отправить'}</button>
+        <button className="primary" disabled={sending || (!draft.trim() && !draftImages.length)}>{sending ? 'Отправляем…' : 'Отправить'}</button>
       </form>
     </section></>;
   }
 
-  return <>{confirmPanel}<section className="messages-page">
+  return <>{confirmPanel}{imageLightbox}<section className="messages-page">
     <div className="messages-list-heading"><div><p className="eyebrow">ЛИЧНЫЕ СООБЩЕНИЯ</p><h1>Диалоги</h1></div></div>
     {error && <div className="notice" role="alert">{error}</div>}
     {loading ? <div className="card empty">Загружаем сообщения…</div> : conversations.length ? <div className="conversation-list">
@@ -489,7 +574,7 @@ export default function MessagesCenter({
           <Avatar profile={item.peer}/>
           <div className="conversation-copy">
             <div><strong>{displayName(item.peer)} <span>@{item.peer.username}</span></strong><small>{formatMessageTime(item.last.created_at)}</small></div>
-            <p>{item.last.sender_id === userId ? 'Вы: ' : ''}{item.last.body || (item.last.image_path ? 'Фото' : '')}</p>
+            <p>{item.last.sender_id === userId ? 'Вы: ' : ''}{item.last.body || ((item.last.image_paths?.length || item.last.image_path) ? 'Фото' : '')}</p>
           </div>
           {item.unread > 0 && <span className="conversation-unread">{item.unread > 99 ? '99+' : item.unread}</span>}
         </Link>
