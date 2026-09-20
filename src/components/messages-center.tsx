@@ -158,7 +158,12 @@ export default function MessagesCenter({
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'direct_messages' },
-() => void load(true),
+        () => void load(true),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'direct_message_likes' },
+        () => void load(true),
       )
       .subscribe();
 
