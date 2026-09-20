@@ -956,3 +956,272 @@ with check (
 
 commit;
 
+-- Tempo messenger privacy reports and production hardening
+begin;
+
+alter table public.direct_messages add column if not exists image_paths text[] not null default '{}';
+update public.direct_messages set image_paths=array[image_path]
+where image_path is not null and coalesce(cardinality(image_paths),0)=0;
+alter table public.direct_messages drop constraint if exists direct_messages_image_paths_check;
+alter table public.direct_messages add constraint direct_messages_image_paths_check check(cardinality(image_paths)<=6);
+alter table public.direct_messages drop constraint if exists direct_messages_body_check;
+alter table public.direct_messages add constraint direct_messages_body_check check(
+  (char_length(trim(body)) between 1 and 2000)
+  or ((coalesce(cardinality(image_paths),0)>0 or image_path is not null) and char_length(body)<=2000)
+);
+
+create table if not exists public.direct_message_pins(
+  message_id uuid not null references public.direct_messages(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key(message_id,user_id)
+);
+create index if not exists direct_message_pins_user_idx on public.direct_message_pins(user_id,created_at desc);
+alter table public.direct_message_pins enable row level security;
+grant select,insert,delete on public.direct_message_pins to authenticated;
+drop policy if exists direct_message_pins_read_own on public.direct_message_pins;
+create policy direct_message_pins_read_own on public.direct_message_pins for select to authenticated using((select auth.uid())=user_id);
+drop policy if exists direct_message_pins_insert_own on public.direct_message_pins;
+create policy direct_message_pins_insert_own on public.direct_message_pins for insert to authenticated with check(
+  (select auth.uid())=user_id and exists(
+    select 1 from public.direct_messages m where m.id=message_id
+      and ((select auth.uid())=m.sender_id or (select auth.uid())=m.receiver_id)
+  )
+);
+drop policy if exists direct_message_pins_delete_own on public.direct_message_pins;
+create policy direct_message_pins_delete_own on public.direct_message_pins for delete to authenticated using((select auth.uid())=user_id);
+
+create table if not exists public.privacy_settings(
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  message_permission text not null default 'all' check(message_permission in('all','following','none')),
+  updated_at timestamptz not null default now()
+);
+alter table public.privacy_settings enable row level security;
+grant select,insert,update on public.privacy_settings to authenticated;
+drop policy if exists privacy_settings_read on public.privacy_settings;
+create policy privacy_settings_read on public.privacy_settings for select to authenticated using(true);
+drop policy if exists privacy_settings_write_own on public.privacy_settings;
+create policy privacy_settings_write_own on public.privacy_settings for all to authenticated
+using((select auth.uid())=user_id) with check((select auth.uid())=user_id);
+
+create table if not exists public.user_blocks(
+  blocker_id uuid not null references public.profiles(id) on delete cascade,
+  blocked_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key(blocker_id,blocked_id),
+  check(blocker_id<>blocked_id)
+);
+create index if not exists user_blocks_blocked_idx on public.user_blocks(blocked_id);
+alter table public.user_blocks enable row level security;
+grant select,insert,delete on public.user_blocks to authenticated;
+drop policy if exists user_blocks_read_own on public.user_blocks;
+create policy user_blocks_read_own on public.user_blocks for select to authenticated
+using((select auth.uid())=blocker_id or (select auth.uid())=blocked_id);
+drop policy if exists user_blocks_insert_own on public.user_blocks;
+create policy user_blocks_insert_own on public.user_blocks for insert to authenticated with check((select auth.uid())=blocker_id);
+drop policy if exists user_blocks_delete_own on public.user_blocks;
+create policy user_blocks_delete_own on public.user_blocks for delete to authenticated using((select auth.uid())=blocker_id);
+
+create table if not exists public.reports(
+  id uuid primary key default gen_random_uuid(),
+  reporter_id uuid not null references public.profiles(id) on delete cascade,
+  target_type text not null check(target_type in('profile','workout')),
+  target_id uuid not null,
+  reason text not null check(reason in('spam','abuse','inappropriate','other')),
+  details text not null default '' check(char_length(details)<=1000),
+  created_at timestamptz not null default now()
+);
+create index if not exists reports_reporter_created_idx on public.reports(reporter_id,created_at desc);
+alter table public.reports enable row level security;
+grant insert,select on public.reports to authenticated;
+drop policy if exists reports_insert_own on public.reports;
+create policy reports_insert_own on public.reports for insert to authenticated with check((select auth.uid())=reporter_id);
+drop policy if exists reports_read_own on public.reports;
+create policy reports_read_own on public.reports for select to authenticated using((select auth.uid())=reporter_id);
+
+drop policy if exists tempo_messages_insert_v1 on public.direct_messages;
+drop policy if exists tempo_messages_insert_v2 on public.direct_messages;
+create policy tempo_messages_insert_v2 on public.direct_messages for insert to authenticated with check(
+  (select auth.uid())=sender_id and sender_id<>receiver_id
+  and not exists(
+    select 1 from public.user_blocks b
+    where (b.blocker_id=sender_id and b.blocked_id=receiver_id)
+       or (b.blocker_id=receiver_id and b.blocked_id=sender_id)
+  )
+  and (
+    coalesce((select p.message_permission from public.privacy_settings p where p.user_id=receiver_id),'all')='all'
+    or (
+      coalesce((select p.message_permission from public.privacy_settings p where p.user_id=receiver_id),'all')='following'
+      and exists(select 1 from public.follows f where f.follower_id=receiver_id and f.following_id=sender_id)
+    )
+  )
+);
+
+drop policy if exists tempo_message_media_read_v1 on storage.objects;
+drop policy if exists tempo_message_media_read_v2 on storage.objects;
+create policy tempo_message_media_read_v2 on storage.objects for select to authenticated using(
+  bucket_id='message-media'
+  and exists(
+    select 1 from public.direct_messages m
+    where (m.image_path=name or name=any(coalesce(m.image_paths,'{}'::text[])))
+      and ((select auth.uid())=m.sender_id or (select auth.uid())=m.receiver_id)
+  )
+);
+
+create or replace function public.guard_message_rate_limit()
+returns trigger language plpgsql security definer set search_path='' as $$
+declare recent_count integer;
+begin
+  select count(*) into recent_count from public.direct_messages m
+  where m.sender_id=new.sender_id and m.created_at>now()-interval '1 minute';
+  if recent_count>=30 then raise exception 'Слишком много сообщений. Подождите немного.'; end if;
+  return new;
+end $$;
+drop trigger if exists direct_messages_rate_limit on public.direct_messages;
+create trigger direct_messages_rate_limit before insert on public.direct_messages for each row execute function public.guard_message_rate_limit();
+
+create or replace function public.guard_comment_rate_limit()
+returns trigger language plpgsql security definer set search_path='' as $$
+declare recent_count integer;
+begin
+  select count(*) into recent_count from public.workout_comments c
+  where c.user_id=new.user_id and c.created_at>now()-interval '1 minute';
+  if recent_count>=20 then raise exception 'Слишком много комментариев. Подождите немного.'; end if;
+  return new;
+end $$;
+drop trigger if exists workout_comments_rate_limit on public.workout_comments;
+create trigger workout_comments_rate_limit before insert on public.workout_comments for each row execute function public.guard_comment_rate_limit();
+
+create or replace function public.guard_workout_rate_limit()
+returns trigger language plpgsql security definer set search_path='' as $$
+declare recent_count integer;
+begin
+  select count(*) into recent_count from public.workouts w
+  where w.user_id=new.user_id and w.created_at>now()-interval '1 hour';
+  if recent_count>=10 then raise exception 'Слишком много публикаций. Попробуйте позже.'; end if;
+  return new;
+end $$;
+drop trigger if exists workouts_rate_limit on public.workouts;
+create trigger workouts_rate_limit before insert on public.workouts for each row execute function public.guard_workout_rate_limit();
+
+create or replace function public.delete_own_account()
+returns void language plpgsql security definer set search_path='' as $$
+declare uid uuid;
+begin
+  uid:=auth.uid();
+  if uid is null then raise exception 'Not authenticated'; end if;
+  delete from auth.users where id=uid;
+end $$;
+revoke all on function public.delete_own_account() from public,anon;
+grant execute on function public.delete_own_account() to authenticated;
+revoke all on function public.guard_message_rate_limit() from public,anon,authenticated;
+revoke all on function public.guard_comment_rate_limit() from public,anon,authenticated;
+revoke all on function public.guard_workout_rate_limit() from public,anon,authenticated;
+
+commit;
+
+-- Tempo block-aware social policies and immutable message media
+begin;
+
+drop policy if exists tempo_follows_insert_guard_v1 on public.follows;
+drop policy if exists tempo_follows_insert_v1 on public.follows;
+drop policy if exists tempo_follows_insert_v2 on public.follows;
+create policy tempo_follows_insert_v2 on public.follows for insert to authenticated with check(
+  (select auth.uid())=follower_id and follower_id<>following_id
+  and not exists(
+    select 1 from public.user_blocks b
+    where (b.blocker_id=follower_id and b.blocked_id=following_id)
+       or (b.blocker_id=following_id and b.blocked_id=follower_id)
+  )
+);
+
+drop policy if exists tempo_workout_comments_insert_guard_v1 on public.workout_comments;
+drop policy if exists tempo_workout_comments_insert_v1 on public.workout_comments;
+drop policy if exists tempo_workout_comments_insert_v2 on public.workout_comments;
+create policy tempo_workout_comments_insert_v2 on public.workout_comments for insert to authenticated with check(
+  (select auth.uid())=user_id
+  and not exists(
+    select 1 from public.workouts w join public.user_blocks b
+      on((b.blocker_id=user_id and b.blocked_id=w.user_id) or (b.blocker_id=w.user_id and b.blocked_id=user_id))
+    where w.id=workout_id
+  )
+);
+
+drop policy if exists tempo_workout_likes_insert_guard_v1 on public.workout_likes;
+drop policy if exists tempo_workout_likes_insert_v1 on public.workout_likes;
+drop policy if exists tempo_workout_likes_insert_v2 on public.workout_likes;
+create policy tempo_workout_likes_insert_v2 on public.workout_likes for insert to authenticated with check(
+  (select auth.uid())=user_id
+  and not exists(
+    select 1 from public.workouts w join public.user_blocks b
+      on((b.blocker_id=user_id and b.blocked_id=w.user_id) or (b.blocker_id=w.user_id and b.blocked_id=user_id))
+    where w.id=workout_id
+  )
+);
+
+drop policy if exists workout_reactions_insert on public.workout_reactions;
+create policy workout_reactions_insert on public.workout_reactions for insert to authenticated with check(
+  (select auth.uid())=user_id
+  and not exists(
+    select 1 from public.workouts w join public.user_blocks b
+      on((b.blocker_id=user_id and b.blocked_id=w.user_id) or (b.blocker_id=w.user_id and b.blocked_id=user_id))
+    where w.id=workout_id
+  )
+);
+drop policy if exists workout_reactions_update on public.workout_reactions;
+create policy workout_reactions_update on public.workout_reactions for update to authenticated
+using((select auth.uid())=user_id) with check(
+  (select auth.uid())=user_id
+  and not exists(
+    select 1 from public.workouts w join public.user_blocks b
+      on((b.blocker_id=user_id and b.blocked_id=w.user_id) or (b.blocker_id=w.user_id and b.blocked_id=user_id))
+    where w.id=workout_id
+  )
+);
+
+drop policy if exists tempo_comment_likes_insert_guard_v1 on public.comment_likes;
+drop policy if exists tempo_comment_likes_insert_v1 on public.comment_likes;
+drop policy if exists tempo_comment_likes_insert_v2 on public.comment_likes;
+create policy tempo_comment_likes_insert_v2 on public.comment_likes for insert to authenticated with check(
+  (select auth.uid())=user_id
+  and not exists(
+    select 1 from public.workout_comments c join public.user_blocks b
+      on((b.blocker_id=user_id and b.blocked_id=c.user_id) or (b.blocker_id=c.user_id and b.blocked_id=user_id))
+    where c.id=comment_id
+  )
+);
+
+create or replace function public.guard_direct_message_update()
+returns trigger language plpgsql set search_path='' as $$
+begin
+  if new.sender_id is distinct from old.sender_id
+    or new.receiver_id is distinct from old.receiver_id
+    or new.created_at is distinct from old.created_at
+    or new.image_path is distinct from old.image_path
+    or new.image_paths is distinct from old.image_paths
+    or new.reply_to_id is distinct from old.reply_to_id then
+    raise exception 'Message routing and attachments are immutable';
+  end if;
+  if (select auth.uid())=old.receiver_id and (select auth.uid())<>old.sender_id then
+    if new.body is distinct from old.body
+      or new.edited_at is distinct from old.edited_at
+      or new.deleted_at is distinct from old.deleted_at then
+      raise exception 'Receiver may only update read_at';
+    end if;
+  end if;
+  return new;
+end $$;
+revoke all on function public.guard_direct_message_update() from public,anon,authenticated;
+
+do $$
+begin
+  if not exists(
+    select 1 from pg_publication_tables
+    where pubname='supabase_realtime' and schemaname='public' and tablename='direct_message_pins'
+  ) then
+    alter publication supabase_realtime add table public.direct_message_pins;
+  end if;
+end $$;
+
+commit;
+
