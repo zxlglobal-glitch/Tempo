@@ -77,6 +77,7 @@ export default function MessagesCenter({
   const [peerTyping, setPeerTyping] = useState(false);
   const [messageLikes, setMessageLikes] = useState<Record<string, { count: number; liked: boolean }>>({});
   const [likeBusy, setLikeBusy] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ type:'thread'|'conversation'; peerId:string; peerName:string } | null>(null);
   const threadChannelRef = useRef<RealtimeChannel | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -311,7 +312,7 @@ export default function MessagesCenter({
     setMessages(current => current.filter(row => row.id !== message.id));
   }
 
-  async function clearConversation(targetPeerId: string, confirmText = 'Очистить всю переписку у себя? Собеседник продолжит видеть сообщения.') {
+  async function clearConversation(targetPeerId: string) {
     if (!supabase || !userId) return;
     const { data: rows, error: rowsError } = await supabase
       .from('direct_messages')
@@ -319,8 +320,7 @@ export default function MessagesCenter({
       .or(`and(sender_id.eq.${userId},receiver_id.eq.${targetPeerId}),and(sender_id.eq.${targetPeerId},receiver_id.eq.${userId})`);
     if (rowsError) { setError(rowsError.message); return; }
     const ids = (rows ?? []).map(row => row.id);
-    if (!ids.length) return;
-    if (!window.confirm(confirmText)) return;
+    if (!ids.length) { setConfirmDelete(null); return; }
     const { error } = await supabase.from('direct_message_hidden').upsert(
       ids.map(message_id => ({ message_id, user_id: userId, hidden_at: new Date().toISOString() })),
       { onConflict: 'message_id,user_id' },
@@ -329,10 +329,11 @@ export default function MessagesCenter({
     setReplyTo(null);
     setThreadSearch('');
     setMessages(current => current.filter(row => !ids.includes(row.id)));
+    setConfirmDelete(null);
   }
 
   async function deleteConversation(targetPeerId: string) {
-    await clearConversation(targetPeerId, 'Удалить этот диалог у себя целиком? У собеседника переписка останется.');
+    await clearConversation(targetPeerId);
   }
 
   async function toggleMessageLike(messageId: string) {
@@ -389,11 +390,25 @@ export default function MessagesCenter({
   }
 
   if (peerId) {
-    return <section className="messages-page">
+    const confirmPanel = confirmDelete && <div className="message-delete-confirm" role="dialog" aria-modal="true" aria-labelledby="message-delete-confirm-title">
+    <div className="message-delete-confirm-card">
+      <p className="eyebrow">ПОДТВЕРЖДЕНИЕ</p>
+      <h2 id="message-delete-confirm-title">{confirmDelete.type === 'thread' ? 'Очистить переписку?' : 'Удалить диалог?'}</h2>
+      <p>{confirmDelete.type === 'thread'
+        ? `Все сообщения с ${confirmDelete.peerName} исчезнут только у вас. У собеседника переписка останется.`
+        : `Диалог с ${confirmDelete.peerName} будет удалён только у вас. У собеседника сообщения останутся.`}</p>
+      <div className="message-delete-confirm-actions">
+        <button type="button" className="reaction" onClick={() => setConfirmDelete(null)}>Отмена</button>
+        <button type="button" className="reaction danger" onClick={() => void deleteConversation(confirmDelete.peerId)}>Удалить</button>
+      </div>
+    </div>
+  </div>;
+
+  return <section className="messages-page">
       <div className="messages-heading">
         <Link className="underlink" href="/messages">← Все диалоги</Link>
         <div className="thread-search"><input value={threadSearch} onChange={event => setThreadSearch(event.target.value)} placeholder="Поиск в переписке" /></div>
-        {thread.length > 0 && <button className="thread-clear-button" type="button" onClick={() => void clearConversation(peerId)} title="Очистить переписку">Очистить</button>}
+        {thread.length > 0 && <button className="thread-clear-button" type="button" onClick={() => setConfirmDelete({ type:'thread', peerId, peerName:displayName(peer) })} title="Очистить переписку">Очистить</button>}
         {peer && <Link className="message-peer" href={`/people/${peer.id}`}>
           <span className="message-peer-avatar"><Avatar profile={peer}/>{peerOnline && <i className="online-dot" aria-label="В сети"/>}</span>
           <div>
@@ -462,10 +477,10 @@ export default function MessagesCenter({
         </div>
         <button className="primary" disabled={sending || (!draft.trim() && !draftImage)}>{sending ? 'Отправляем…' : 'Отправить'}</button>
       </form>
-    </section>;
+    </section></>;
   }
 
-  return <section className="messages-page">
+  return <>{confirmPanel}<section className="messages-page">
     <div className="messages-list-heading"><div><p className="eyebrow">ЛИЧНЫЕ СООБЩЕНИЯ</p><h1>Диалоги</h1></div></div>
     {error && <div className="notice" role="alert">{error}</div>}
     {loading ? <div className="card empty">Загружаем сообщения…</div> : conversations.length ? <div className="conversation-list">
@@ -478,10 +493,10 @@ export default function MessagesCenter({
           </div>
           {item.unread > 0 && <span className="conversation-unread">{item.unread > 99 ? '99+' : item.unread}</span>}
         </Link>
-        <button className="conversation-delete-button" type="button" aria-label={`Удалить диалог с ${displayName(item.peer)}`} title="Удалить диалог" onClick={() => void deleteConversation(item.peer.id)}>
+        <button className="conversation-delete-button" type="button" aria-label={`Удалить диалог с ${displayName(item.peer)}`} title="Удалить диалог" onClick={() => setConfirmDelete({ type:'conversation', peerId:item.peer.id, peerName:displayName(item.peer) })}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>
         </button>
       </article>)}
     </div> : <div className="card empty"><h2>Пока нет диалогов</h2><p>Найдите участника TEMPO и нажмите «Написать».</p><Link className="underlink" href="/people">Найти людей →</Link></div>}
-  </section>;
+  </section></>;
 }
