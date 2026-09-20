@@ -207,3 +207,19 @@
   .notification-delete{right:9px;opacity:.7}
 }
 
+/* Conversation cleanup controls */
+.thread-clear-button{border:1px solid var(--line);border-radius:8px;background:#fafbf8;color:#8d5a5a;padding:8px 10px;font-size:10px;cursor:pointer;white-space:nowrap}
+.thread-clear-button:hover{background:#fff1f1;border-color:#e7caca;color:#9b4444}
+.conversation-row-shell{position:relative;padding:0;display:flex;align-items:stretch}
+.conversation-row-link{display:flex;align-items:center;gap:13px;min-width:0;flex:1;padding:15px 52px 15px 17px}
+.conversation-delete-button{position:absolute;right:12px;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border:0;border-radius:8px;background:transparent;color:#a4aaa6;opacity:0;cursor:pointer;transition:opacity .15s ease,background .15s ease,color .15s ease}
+.conversation-row-shell:hover .conversation-delete-button,.conversation-delete-button:focus-visible{opacity:1}
+.conversation-delete-button:hover{background:#fff0f0;color:#a94f4f}
+.conversation-delete-button svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+@media(hover:none){.conversation-delete-button{opacity:.65}}
+@media(max-width:700px){
+  .thread-clear-button{order:4}
+  .conversation-row-link{padding:13px 46px 13px 13px}
+  .conversation-delete-button{right:8px;opacity:.65}
+}
+
