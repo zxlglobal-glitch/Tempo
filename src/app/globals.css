@@ -260,3 +260,16 @@
 .comment-delete-button:hover{background:#fff1f1;color:#984646}
 .comment-delete-button:disabled{opacity:.45}
 
+/* In-page message delete confirmation */
+.message-delete-confirm{position:fixed;inset:0;z-index:120;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(31,43,38,.28);backdrop-filter:blur(3px)}
+.message-delete-confirm-card{width:min(420px,100%);padding:24px;border:1px solid var(--line);border-radius:14px;background:#fff;box-shadow:0 20px 60px rgba(31,43,38,.18)}
+.message-delete-confirm-card h2{margin:0 0 10px;font-size:23px}
+.message-delete-confirm-card>p:not(.eyebrow){margin:0;color:var(--muted);font-size:12px;line-height:1.6}
+.message-delete-confirm-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+.message-delete-confirm-actions .danger{background:#fff4f4;border-color:#e5c8c8}
+@media(max-width:700px){
+  .message-delete-confirm{align-items:flex-end;padding:12px}
+  .message-delete-confirm-card{border-radius:14px 14px 10px 10px;padding:20px}
+  .message-delete-confirm-actions{display:grid;grid-template-columns:1fr 1fr}
+}
+
