@@ -26,6 +26,17 @@ export default function PeopleSearch() {
     setLoading(true);
     setError('');
     try {
+      const { data: auth } = await supabase.auth.getUser();
+      const currentUserId = auth.user?.id ?? null;
+      const blockedIds = new Set<string>();
+      if (currentUserId) {
+        const { data: blocks } = await supabase.from('user_blocks')
+          .select('blocker_id, blocked_id')
+          .or(`blocker_id.eq.${currentUserId},blocked_id.eq.${currentUserId}`);
+        for (const block of blocks ?? []) {
+          blockedIds.add(block.blocker_id === currentUserId ? block.blocked_id : block.blocker_id);
+        }
+      }
       const term = cleanSearch(nextQuery);
       if (!term) {
         const { data, error } = await supabase
@@ -35,7 +46,7 @@ export default function PeopleSearch() {
           .limit(24)
           .returns<Profile[]>();
         if (error) throw error;
-        setPeople(data ?? []);
+        setPeople((data ?? []).filter(person => !blockedIds.has(person.id)));
         return;
       }
 
@@ -61,9 +72,9 @@ export default function PeopleSearch() {
       for (const person of [...(byUsername.data ?? []), ...(byName.data ?? [])]) {
         merged.set(person.id, person);
       }
-      setPeople([...merged.values()].slice(0, 24));
+      setPeople([...merged.values()].filter(person => !blockedIds.has(person.id)).slice(0, 24));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось выполнить поиск.');
+      setError('Не удалось выполнить поиск. Проверьте соединение и попробуйте ещё раз.');
     } finally {
       setLoading(false);
     }
