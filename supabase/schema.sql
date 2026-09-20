@@ -548,3 +548,61 @@ for each row execute function public.notify_workout_reaction();
 
 commit;
 
+-- Tempo social upgrades hardening
+begin;
+
+create index if not exists direct_message_likes_user_idx on public.direct_message_likes(user_id);
+create index if not exists direct_messages_reply_to_idx on public.direct_messages(reply_to_id);
+create index if not exists notifications_message_idx on public.notifications(message_id);
+create index if not exists profiles_pinned_workout_idx on public.profiles(pinned_workout_id);
+create index if not exists workout_reactions_user_idx on public.workout_reactions(user_id);
+
+drop policy if exists workout_reactions_write on public.workout_reactions;
+create policy workout_reactions_insert on public.workout_reactions for insert to authenticated
+  with check ((select auth.uid())=user_id);
+create policy workout_reactions_update on public.workout_reactions for update to authenticated
+  using ((select auth.uid())=user_id) with check ((select auth.uid())=user_id);
+create policy workout_reactions_delete on public.workout_reactions for delete to authenticated
+  using ((select auth.uid())=user_id);
+
+drop policy if exists notifications_select_own on public.notifications;
+create policy notifications_select_own on public.notifications for select to authenticated
+  using ((select auth.uid())=recipient_id);
+drop policy if exists notifications_update_own on public.notifications;
+create policy notifications_update_own on public.notifications for update to authenticated
+  using ((select auth.uid())=recipient_id) with check ((select auth.uid())=recipient_id);
+
+drop policy if exists tempo_messages_sender_update_v2 on public.direct_messages;
+drop policy if exists tempo_messages_update_v1 on public.direct_messages;
+create policy tempo_messages_update_v3 on public.direct_messages for update to authenticated
+  using ((select auth.uid())=sender_id or (select auth.uid())=receiver_id)
+  with check (((select auth.uid())=sender_id or (select auth.uid())=receiver_id) and sender_id<>receiver_id);
+
+create or replace function public.guard_direct_message_update()
+returns trigger language plpgsql set search_path='' as $$
+begin
+  if (select auth.uid()) = old.receiver_id and (select auth.uid()) <> old.sender_id then
+    if new.sender_id is distinct from old.sender_id
+      or new.receiver_id is distinct from old.receiver_id
+      or new.body is distinct from old.body
+      or new.reply_to_id is distinct from old.reply_to_id
+      or new.edited_at is distinct from old.edited_at
+      or new.deleted_at is distinct from old.deleted_at
+      or new.created_at is distinct from old.created_at then
+      raise exception 'Receiver may only update read_at';
+    end if;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists direct_messages_guard_update on public.direct_messages;
+create trigger direct_messages_guard_update before update on public.direct_messages
+for each row execute function public.guard_direct_message_update();
+
+revoke all on function public.notify_direct_message() from public, anon, authenticated;
+revoke all on function public.notify_message_like() from public, anon, authenticated;
+revoke all on function public.notify_workout_reaction() from public, anon, authenticated;
+revoke all on function public.guard_direct_message_update() from public, anon, authenticated;
+
+commit;
+
