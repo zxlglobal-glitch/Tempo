@@ -244,6 +244,7 @@ export default function Tempo() {
       : await supabase.from('user_blocks').insert({ blocker_id:user.id, blocked_id:profileId });
     if (result.error && result.error.code !== '23505') { setMessage(describeQueryError(result.error)); return; }
     setProfileBlocked(!profileBlocked);
+    setFollowRevision(value => value + 1);
   }
 
   async function shareProfile() {
