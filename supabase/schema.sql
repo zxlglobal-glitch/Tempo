@@ -1261,3 +1261,9 @@ begin;
 drop function if exists public.delete_own_account();
 commit;
 
+-- Tempo rate limit and message media indexes
+begin;
+create index if not exists workout_comments_user_created_idx on public.workout_comments(user_id, created_at desc);
+create index if not exists direct_messages_image_paths_gin_idx on public.direct_messages using gin(image_paths);
+commit;
+
