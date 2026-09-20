@@ -290,7 +290,8 @@ export default function MessagesCenter({
   async function deleteMessage(message: Message) {
     if (!supabase || !userId || message.sender_id !== userId || message.deleted_at) return;
     if (!window.confirm('Удалить это сообщение?')) return;
-    const { error } = await supabase.from('direct_messages').update({ body: 'Сообщение удалено', deleted_at: new Date().toISOString(), edited_at: null }).eq('id', message.id).eq('sender_id', userId);
+    if (message.image_path) await supabase.storage.from('message-media').remove([message.image_path]);
+    const { error } = await supabase.from('direct_messages').update({ body: 'Сообщение удалено', image_path: null, deleted_at: new Date().toISOString(), edited_at: null }).eq('id', message.id).eq('sender_id', userId);
     if (error) { setError(error.message); return; }
     if (replyTo?.id === message.id) setReplyTo(null);
     await load(true);
@@ -370,7 +371,7 @@ export default function MessagesCenter({
             <div className="message-bubble-shell">
               <div className={`message-bubble ${row.deleted_at ? 'deleted' : ''}`}>
                 {row.reply_to_id && (() => { const original = thread.find(item => item.id === row.reply_to_id); return original ? <button type="button" className="message-reply-preview" onClick={() => document.getElementById(`message-${original.id}`)?.scrollIntoView({behavior:'smooth',block:'center'})}><strong>{original.sender_id === userId ? 'Вы' : displayName(peer)}</strong><span>{original.body}</span></button> : null; })()}
-                {row.image_path && messageImageUrls[row.id] && <a className="message-image-link" href={messageImageUrls[row.id]} target="_blank" rel="noreferrer"><img className="message-image" src={messageImageUrls[row.id]} alt="Фото в сообщении" loading="lazy" /></a>}
+                {!row.deleted_at && row.image_path && messageImageUrls[row.id] && <a className="message-image-link" href={messageImageUrls[row.id]} target="_blank" rel="noreferrer"><img className="message-image" src={messageImageUrls[row.id]} alt="Фото в сообщении" loading="lazy" /></a>}
                 {row.body && <p id={`message-${row.id}`}>{row.body}</p>}
                 <small>
                   {formatMessageTime(row.created_at)}{row.edited_at && !row.deleted_at && <span className="edited-mark"> · изменено</span>}
