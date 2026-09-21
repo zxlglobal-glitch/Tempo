@@ -60,6 +60,12 @@ export default function Tempo() {
   const [profileStats, setProfileStats] = useState<{ count:number; minutes:number; favorite:string; pinned:{id:string;title:string}|null } | null>(null);
   const [profileStatsOpen, setProfileStatsOpen] = useState(false);
   const feedSentinel = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!profileStatsOpen) return;
+    const closeOnScroll = () => setProfileStatsOpen(false);
+    window.addEventListener('scroll', closeOnScroll, { passive: true });
+    return () => window.removeEventListener('scroll', closeOnScroll);
+  }, [profileStatsOpen]);
   const [category, setCategory] = useState('Все'); const [categoryQuery, setCategoryQuery] = useState(''); const [categoriesExpanded, setCategoriesExpanded] = useState(false); const [revision, setRevision] = useState(0); const [limit, setLimit] = useState(20);
   useEffect(() => { setCategory('Все'); setCategoryQuery(''); setCategoriesExpanded(false); setLimit(20); setFeedMode('all'); setProfileStatsOpen(false); }, [path]);
   useEffect(() => {
