@@ -581,16 +581,42 @@ body{overflow-x:hidden}
 
 
 
-/* Profile personalization themes — premium */
-.profile-themed{position:relative;background:var(--profile-bg,#fbfcf8);isolation:isolate}
-.profile-themed::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background-image:var(--profile-pattern,none),radial-gradient(circle,rgba(76,91,84,.18) 0 1px,transparent 1.2px);background-size:var(--profile-pattern-size,68px 68px),34px 34px;background-position:center,10px 12px;background-repeat:repeat;opacity:var(--profile-pattern-opacity,.06)}
+/* Profile personalization themes — premium mockup match */
+.profile-themed{position:relative;background:#fbfcf8;isolation:isolate}
+.profile-themed::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background-image:var(--profile-pattern,none);background-size:var(--profile-pattern-size,96px 76px);background-repeat:repeat;background-position:center;opacity:var(--profile-pattern-opacity,.08)}
 .profile-themed>.avatar,.profile-themed>div{position:relative;z-index:1}
-.profile-theme-none,.theme-preview-none{--profile-bg:#fff;--profile-pattern:none;--profile-pattern-opacity:0}
-.profile-theme-kettlebells,.theme-preview-kettlebells{--profile-bg:#fbfcf8;--profile-pattern-size:64px 64px;--profile-pattern-opacity:.075;--profile-pattern:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cg fill='none' stroke='%23586962' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M25 22c0-5 3-8 7-8s7 3 7 8'/%3E%3Cpath d='M22 33c0-7 4-11 10-11s10 4 10 11v7c0 7-4 11-10 11S22 47 22 40v-7Z'/%3E%3C/g%3E%3C/svg%3E")}
-.profile-theme-dumbbells,.theme-preview-dumbbells{--profile-bg:#fbfcf8;--profile-pattern-size:72px 64px;--profile-pattern-opacity:.07;--profile-pattern:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='64' viewBox='0 0 72 64'%3E%3Cg transform='rotate(-13 36 32)' fill='none' stroke='%23586962' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='12' y='25' width='7' height='14' rx='3.5'/%3E%3Crect x='20' y='22' width='8' height='20' rx='4'/%3E%3Cpath d='M28 32h16'/%3E%3Crect x='44' y='22' width='8' height='20' rx='4'/%3E%3Crect x='53' y='25' width='7' height='14' rx='3.5'/%3E%3C/g%3E%3C/svg%3E")}
-.profile-theme-plates,.theme-preview-plates{--profile-bg:#fbfcf8;--profile-pattern-size:70px 70px;--profile-pattern-opacity:.07;--profile-pattern:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='70' height='70' viewBox='0 0 70 70'%3E%3Cg fill='none' stroke='%23586962' stroke-width='1.6'%3E%3Ccircle cx='35' cy='35' r='18'/%3E%3Ccircle cx='35' cy='35' r='14'/%3E%3Ccircle cx='35' cy='35' r='3.2'/%3E%3C/g%3E%3Ctext x='35' y='31.5' text-anchor='middle' font-family='Arial,sans-serif' font-size='6.5' font-weight='700' fill='%23586962'%3E20%3C/text%3E%3Ctext x='35' y='43' text-anchor='middle' font-family='Arial,sans-serif' font-size='5.5' font-weight='700' fill='%23586962'%3EKG%3C/text%3E%3C/svg%3E")}
-.profile-theme-sneakers,.theme-preview-sneakers{--profile-bg:#fbfcf8;--profile-pattern-size:82px 62px;--profile-pattern-opacity:.07;--profile-pattern:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='82' height='62' viewBox='0 0 82 62'%3E%3Cg transform='rotate(-8 41 31)' fill='none' stroke='%23586962' stroke-width='1.55' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 38c5-.6 9-3.8 12-9l4-7 9 4c2.8 1.3 5 3.8 7.2 6.1 5.7.7 11.8 2.7 16.8 6.4v5H17c-.5-2.5-.2-4.2 1-5.5Z'/%3E%3Cpath d='M18 43h49M35 28l7 1.5M32 31.5l8 1.5M29 35l8 1.4M54 35.5c3 .6 5 1.5 7 2.8'/%3E%3Cpath d='M25 39c6 1.2 13 1.3 20 .5'/%3E%3C/g%3E%3C/svg%3E")}
-.profile-theme-rope,.theme-preview-rope{--profile-bg:#fbfcf8;--profile-pattern-size:72px 72px;--profile-pattern-opacity:.07;--profile-pattern:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23586962' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M24 22c-4 12-3.5 24 4 33M48 22c4 12 3.5 24-4 33M28 55c3.5 3.5 5.5 5 8 5s4.5-1.5 8-5'/%3E%3Crect x='20.5' y='15' width='7' height='13' rx='3.5'/%3E%3Crect x='44.5' y='15' width='7' height='13' rx='3.5'/%3E%3C/g%3E%3C/svg%3E")}
+
+.profile-theme-none,.theme-preview-none{--profile-pattern:none;--profile-pattern-opacity:0}
+
+/* Kettlebell — rounded premium outline, staggered repeat + tiny x marks */
+.profile-theme-kettlebells,.theme-preview-kettlebells{
+  --profile-pattern-size:118px 86px;
+  --profile-pattern-opacity:.085;
+  --profile-pattern:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='118' height='86' viewBox='0 0 118 86'%3E%3Cg fill='none' stroke='%235d6b64' stroke-width='1.65' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='translate(12 10)'%3E%3Cpath d='M16 14c0-5.5 4-9 9-9s9 3.5 9 9'/%3E%3Cpath d='M11 27c0-8 6-14 14-14s14 6 14 14v8c0 10-6 16-14 16S11 45 11 35v-8Z'/%3E%3C/g%3E%3Cg transform='translate(69 34) scale(.78)'%3E%3Cpath d='M16 14c0-5.5 4-9 9-9s9 3.5 9 9'/%3E%3Cpath d='M11 27c0-8 6-14 14-14s14 6 14 14v8c0 10-6 16-14 16S11 45 11 35v-8Z'/%3E%3C/g%3E%3Cpath d='M58 16l2 2m0-2-2 2M103 13l2 2m0-2-2 2M54 68l2 2m0-2-2 2' stroke-width='1'/%3E%3C/g%3E%3C/svg%3E")}
+
+/* Dumbbell — soft rounded plates, slight diagonal placement like the chosen mockup */
+.profile-theme-dumbbells,.theme-preview-dumbbells{
+  --profile-pattern-size:126px 88px;
+  --profile-pattern-opacity:.08;
+  --profile-pattern:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='126' height='88' viewBox='0 0 126 88'%3E%3Cg fill='none' stroke='%235d6b64' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='translate(7 10) rotate(-8 27 18)'%3E%3Crect x='3' y='10' width='7' height='16' rx='3.5'/%3E%3Crect x='11' y='7' width='8' height='22' rx='4'/%3E%3Cpath d='M19 18h17'/%3E%3Crect x='36' y='7' width='8' height='22' rx='4'/%3E%3Crect x='45' y='10' width='7' height='16' rx='3.5'/%3E%3C/g%3E%3Cg transform='translate(67 44) rotate(12 24 16) scale(.82)'%3E%3Crect x='3' y='10' width='7' height='16' rx='3.5'/%3E%3Crect x='11' y='7' width='8' height='22' rx='4'/%3E%3Cpath d='M19 18h17'/%3E%3Crect x='36' y='7' width='8' height='22' rx='4'/%3E%3Crect x='45' y='10' width='7' height='16' rx='3.5'/%3E%3C/g%3E%3Cpath d='M67 16l2 2m0-2-2 2M111 28l2 2m0-2-2 2M55 70l2 2m0-2-2 2' stroke-width='1'/%3E%3C/g%3E%3C/svg%3E")}
+
+/* Weight plate — clean 20 KG plate, no bar */
+.profile-theme-plates,.theme-preview-plates{
+  --profile-pattern-size:112px 88px;
+  --profile-pattern-opacity:.082;
+  --profile-pattern:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='112' height='88' viewBox='0 0 112 88'%3E%3Cg fill='none' stroke='%235d6b64' stroke-width='1.55'%3E%3Cg transform='translate(8 10)'%3E%3Ccircle cx='23' cy='23' r='20'/%3E%3Ccircle cx='23' cy='23' r='16'/%3E%3Ccircle cx='23' cy='23' r='3'/%3E%3C/g%3E%3Cg transform='translate(66 42) scale(.72)'%3E%3Ccircle cx='23' cy='23' r='20'/%3E%3Ccircle cx='23' cy='23' r='16'/%3E%3Ccircle cx='23' cy='23' r='3'/%3E%3C/g%3E%3Cpath d='M58 18l2 2m0-2-2 2M100 16l2 2m0-2-2 2M55 70l2 2m0-2-2 2' stroke-width='1'/%3E%3C/g%3E%3Ctext x='31' y='29' text-anchor='middle' font-family='Arial,sans-serif' font-size='7.2' font-weight='700' fill='%235d6b64'%3E20%3C/text%3E%3Ctext x='31' y='38' text-anchor='middle' font-family='Arial,sans-serif' font-size='6.1' font-weight='700' fill='%235d6b64'%3EKG%3C/text%3E%3Ctext x='82.5' y='61.5' text-anchor='middle' font-family='Arial,sans-serif' font-size='5.2' font-weight='700' fill='%235d6b64'%3E20%3C/text%3E%3Ctext x='82.5' y='68' text-anchor='middle' font-family='Arial,sans-serif' font-size='4.5' font-weight='700' fill='%235d6b64'%3EKG%3C/text%3E%3C/svg%3E")}
+
+/* Low-top canvas sneaker — flat sole, toe cap, laces, no running-shoe geometry */
+.profile-theme-sneakers,.theme-preview-sneakers{
+  --profile-pattern-size:130px 84px;
+  --profile-pattern-opacity:.082;
+  --profile-pattern:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='130' height='84' viewBox='0 0 130 84'%3E%3Cg fill='none' stroke='%235d6b64' stroke-width='1.55' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='translate(7 9)'%3E%3Cpath d='M8 36c5-.3 10-2.2 15-5.4l7-15 9 4.4c4 2 6.7 5.5 9.8 9.2 7.5 1 14 3.2 20.2 7.8v6H7c-.8-2.8-.5-5 .8-7Z'/%3E%3Cpath d='M8 43h61M29 20.5l8 1.6M27 24.7l8.5 1.7M25 29l8.5 1.7M46 31c4.8.4 9 1.5 12.5 3.5M15 37c9 1 18 1 28-.4'/%3E%3Cpath d='M61 37c3 .6 5 1.6 7 3.2'/%3E%3C/g%3E%3Cg transform='translate(77 48) scale(.68)'%3E%3Cpath d='M8 36c5-.3 10-2.2 15-5.4l7-15 9 4.4c4 2 6.7 5.5 9.8 9.2 7.5 1 14 3.2 20.2 7.8v6H7c-.8-2.8-.5-5 .8-7Z'/%3E%3Cpath d='M8 43h61M29 20.5l8 1.6M27 24.7l8.5 1.7M25 29l8.5 1.7M46 31c4.8.4 9 1.5 12.5 3.5'/%3E%3C/g%3E%3Cpath d='M73 14l2 2m0-2-2 2M117 24l2 2m0-2-2 2M58 67l2 2m0-2-2 2' stroke-width='1'/%3E%3C/g%3E%3C/svg%3E")}
+
+/* Jump rope — round rope arc and short handles */
+.profile-theme-rope,.theme-preview-rope{
+  --profile-pattern-size:114px 86px;
+  --profile-pattern-opacity:.08;
+  --profile-pattern:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='114' height='86' viewBox='0 0 114 86'%3E%3Cg fill='none' stroke='%235d6b64' stroke-width='1.55' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='translate(9 8)'%3E%3Cpath d='M22 45c2-19 10-31 22-31s20 12 22 31'/%3E%3Cpath d='M24 45c4 9 10 14 20 14s16-5 20-14'/%3E%3Crect x='15' y='42' width='7' height='19' rx='3.5' transform='rotate(10 18.5 51.5)'/%3E%3Crect x='66' y='42' width='7' height='19' rx='3.5' transform='rotate(-10 69.5 51.5)'/%3E%3C/g%3E%3Cg transform='translate(70 46) scale(.58)'%3E%3Cpath d='M22 45c2-19 10-31 22-31s20 12 22 31'/%3E%3Crect x='15' y='42' width='7' height='19' rx='3.5' transform='rotate(10 18.5 51.5)'/%3E%3Crect x='66' y='42' width='7' height='19' rx='3.5' transform='rotate(-10 69.5 51.5)'/%3E%3C/g%3E%3Cpath d='M65 15l2 2m0-2-2 2M103 20l2 2m0-2-2 2M57 72l2 2m0-2-2 2' stroke-width='1'/%3E%3C/g%3E%3C/svg%3E")}
 
 .profile-theme-field{margin:2px 0 22px}
 .profile-theme-field-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:10px}
@@ -598,11 +624,11 @@ body{overflow-x:hidden}
 .profile-theme-field-head span{color:var(--muted);font-size:10px;font-weight:400;text-align:right}
 .profile-theme-field>input{display:none}
 .profile-theme-picker{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-.profile-theme-option{position:relative;min-height:92px;padding:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--profile-bg,#fbfcf8);color:var(--ink);text-align:left;cursor:pointer;transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease}
+.profile-theme-option{position:relative;min-height:92px;padding:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fbfcf8;color:var(--ink);text-align:left;cursor:pointer;transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease}
 .profile-theme-option:hover{transform:translateY(-1px);border-color:#bac9b4}
 .profile-theme-option.selected{border-color:#8aa083;box-shadow:0 0 0 2px rgba(120,149,110,.12)}
-.profile-theme-option i{position:absolute;inset:0;background-image:var(--profile-pattern,none),radial-gradient(circle,rgba(76,91,84,.17) 0 1px,transparent 1.2px);background-size:var(--profile-pattern-size,68px 68px),34px 34px;background-position:center,10px 12px;background-repeat:repeat;opacity:var(--profile-pattern-opacity,.07);pointer-events:none}
-.profile-theme-option>span{position:absolute;left:9px;bottom:9px;z-index:2;display:inline-flex;align-items:center;min-height:25px;padding:0 8px;border-radius:999px;background:rgba(255,255,255,.92);box-shadow:0 2px 8px rgba(32,49,45,.06);font-size:10px;font-weight:600}
+.profile-theme-option i{position:absolute;inset:0;background-image:var(--profile-pattern,none);background-size:var(--profile-pattern-size,96px 76px);background-repeat:repeat;background-position:center;opacity:var(--profile-pattern-opacity,.08);pointer-events:none}
+.profile-theme-option>span{position:absolute;left:9px;bottom:9px;z-index:2;display:inline-flex;align-items:center;min-height:25px;padding:0 8px;border-radius:999px;background:rgba(255,255,255,.94);box-shadow:0 2px 8px rgba(32,49,45,.05);font-size:10px;font-weight:600}
 .profile-theme-option.selected::after{content:"✓";position:absolute;right:8px;top:8px;z-index:3;display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--green);color:#fff;font-size:12px;font-weight:700}
 
 @media(max-width:700px){
@@ -610,6 +636,6 @@ body{overflow-x:hidden}
   .profile-theme-field-head span{display:block;margin-top:4px;text-align:left;line-height:1.4}
   .profile-theme-picker{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
   .profile-theme-option{min-height:82px}
-  .profile-themed::before{opacity:var(--profile-pattern-opacity,.06)}
+  .profile-themed::before{opacity:var(--profile-pattern-opacity,.08)}
 }
 
