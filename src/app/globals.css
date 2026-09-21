@@ -297,6 +297,7 @@
 .message-context-wrap{position:absolute;top:50%;left:calc(100% + 7px);z-index:12;transform:translateY(-50%)}
 .message-bubble-wrap.own .message-context-wrap{left:auto;right:calc(100% + 7px)}
 .message-context-trigger{width:28px;height:28px;padding:0;border:1px solid var(--line);border-radius:999px;background:#fff;color:#89928d;font-size:12px;letter-spacing:1px;opacity:0;transition:opacity .15s ease,background .15s ease}
+.message-context-trigger svg{display:block;width:15px;height:15px;margin:auto;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round}
 .message-bubble-shell:hover .message-context-trigger,.message-context-trigger:focus-visible{opacity:1}
 .message-context-menu{position:absolute;top:32px;left:0;min-width:150px;padding:5px;border:1px solid var(--line);border-radius:10px;background:#fff;box-shadow:0 12px 34px rgba(32,49,45,.15)}
 .message-bubble-wrap.own .message-context-menu{left:auto;right:0}
