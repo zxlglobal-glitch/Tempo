@@ -23,7 +23,7 @@ const profileThemes = [
   { id:'kettlebells', label:'Гири' },
   { id:'dumbbells', label:'Гантели' },
   { id:'plates', label:'Блины' },
-  { id:'sneakers', label:'Кроссовки' },
+  { id:'sneakers', label:'Кеды' },
   { id:'rope', label:'Скакалки' },
 ] as const;
 const profileThemeIds = profileThemes.map(theme => theme.id);
