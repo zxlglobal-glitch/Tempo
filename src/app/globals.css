@@ -295,8 +295,9 @@
   .profile-username{font-size:10px!important}
   .profile-city{font-size:11px!important}
   .profile-bio{font-size:14px!important;line-height:1.5}
-  .profile-stats-drawer{position:fixed;left:12px;right:12px;top:auto;bottom:12px;width:auto;height:auto;max-height:62dvh;border:1px solid var(--line);border-radius:16px;padding:18px;transform:translateY(calc(100% + 28px));box-shadow:0 18px 50px rgba(32,49,45,.18)}
-  .profile-stats-drawer.open{transform:translateY(0)}
+  .profile-with-stats:has(.profile-stats-drawer.open){z-index:180;overflow:visible;isolation:auto}
+  .profile-stats-drawer{position:fixed;left:10px;right:10px;top:auto;bottom:max(10px,env(safe-area-inset-bottom));z-index:190;width:auto;height:auto;max-height:min(70dvh,520px);overflow:auto;border:1px solid var(--line);border-radius:18px;padding:18px;background:#fff;transform:translateY(calc(100% + 32px));box-shadow:0 22px 70px rgba(32,49,45,.28);transition:transform .22s ease,opacity .18s ease}
+  .profile-stats-drawer.open{transform:translateY(0);opacity:1;pointer-events:auto}
   .profile-stats-toggle{top:auto;bottom:14px;right:0;transform:none;height:46px}
 }
 
