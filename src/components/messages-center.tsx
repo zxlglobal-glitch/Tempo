@@ -83,7 +83,7 @@ export default function MessagesCenter({
   const [peerOnline, setPeerOnline] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
   const [messageAccess, setMessageAccess] = useState<'allowed'|'blocked'|'restricted'>('allowed');
-  const [messageLikes, setMessageLikes] = useState<Record<string, { count: number; liked: boolean }>>({});
+  const [messageLikes, setMessageLikes] = useState<Record<string, { count: number; liked: boolean; peerLiked: boolean }>>({});
   const [likeBusy, setLikeBusy] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ type:'thread'|'conversation'; peerId:string; peerName:string } | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
@@ -143,7 +143,7 @@ export default function MessagesCenter({
         }
       }
 
-      const nextLikes: Record<string, { count: number; liked: boolean }> = {};
+      const nextLikes: Record<string, { count: number; liked: boolean; peerLiked: boolean }> = {};
       if (rows.length) {
         const { data: likes, error: likesError } = await supabase
           .from('direct_message_likes')
@@ -151,9 +151,10 @@ export default function MessagesCenter({
           .in('message_id', rows.map(row => row.id));
         if (likesError) throw likesError;
         for (const like of likes ?? []) {
-          const current = nextLikes[like.message_id] ?? { count: 0, liked: false };
+          const current = nextLikes[like.message_id] ?? { count: 0, liked: false, peerLiked: false };
           current.count += 1;
           if (like.user_id === userId) current.liked = true;
+          else current.peerLiked = true;
           nextLikes[like.message_id] = current;
         }
       }
@@ -451,7 +452,7 @@ export default function MessagesCenter({
 
   async function toggleMessageLike(messageId: string) {
     if (!supabase || !userId || likeBusy) return;
-    const current = messageLikes[messageId] ?? { count: 0, liked: false };
+    const current = messageLikes[messageId] ?? { count: 0, liked: false, peerLiked: false };
     setLikeBusy(messageId);
     try {
       const result = current.liked
@@ -580,6 +581,7 @@ export default function MessagesCenter({
           <div className={`message-bubble-wrap ${row.sender_id === userId ? 'own' : ''}`}>
             <div className="message-bubble-shell">
               <div id={`message-${row.id}`} className={`message-bubble ${row.deleted_at ? 'deleted' : ''}`}>
+                {row.sender_id === userId && messageLikes[row.id]?.peerLiked && <span className="message-received-like" title="Собеседнику понравилось это сообщение" aria-label="Собеседнику понравилось это сообщение">♥</span>}
                 {row.reply_to_id && (() => { const original = thread.find(item => item.id === row.reply_to_id); return original ? <button type="button" className="message-reply-preview" onClick={() => document.getElementById(`message-${original.id}`)?.scrollIntoView({behavior:'smooth',block:'center'})}><strong>{original.sender_id === userId ? 'Вы' : displayName(peer)}</strong><span>{original.body}</span></button> : null; })()}
                 {!row.deleted_at && (messageImageUrls[row.id]?.length ?? 0) > 0 && <div className={`message-image-grid count-${Math.min(messageImageUrls[row.id].length,4)}`}>
                   {messageImageUrls[row.id]!.map((url,index) => <button type="button" className="message-image-button" key={url} onClick={() => setLightbox({ urls:messageImageUrls[row.id]!, index })} aria-label={`Открыть фото ${index+1}`}>
