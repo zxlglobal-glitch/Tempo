@@ -324,9 +324,8 @@
 .message-lightbox-counter{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.12);color:#fff;font-size:10px}
 @media(hover:none){.message-context-trigger{opacity:.55}}
 @media(max-width:700px){
-  .message-context-wrap,.message-bubble-wrap.own .message-context-wrap{position:static;transform:none;align-self:flex-end;margin-top:3px}
-  .message-context-trigger{opacity:.6}
-  .message-context-menu{position:fixed;left:12px!important;right:12px!important;top:auto;bottom:74px;min-width:0;padding:8px;border-radius:14px}
+  .message-context-trigger{opacity:.5}
+  .message-context-menu{position:fixed;left:12px!important;right:12px!important;top:auto;bottom:max(12px,env(safe-area-inset-bottom));min-width:0;padding:8px;border-radius:14px}
   .message-context-menu button{padding:11px 12px;font-size:12px}
   .message-image-grid{max-width:280px}
   .message-image-grid .message-image{height:110px}
@@ -452,24 +451,6 @@ body{overflow-x:hidden}
   button,.reaction,.compact-action-button{touch-action:manipulation}
 }
 
-/* Mobile navigation and composer polish */
-@media(max-width:700px){
-  aside{position:fixed;left:0;right:0;bottom:0;top:auto;z-index:80;width:100%;height:auto;min-height:64px;padding:7px max(10px,env(safe-area-inset-right)) max(7px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));border-right:0;border-top:1px solid var(--line);border-bottom:0;background:rgba(255,255,255,.96);backdrop-filter:blur(14px)}
-  aside>.logo,aside>.tagline,aside>.aside-bottom{display:none}
-  aside nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));width:100%;gap:2px;margin:0}
-  aside nav a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:0;padding:7px 2px;border-radius:9px;font-size:8px;line-height:1.1;color:#77807a}
-  aside nav a>span:last-child{display:block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  aside nav .active{background:#edf3e8;color:#37503a;font-weight:600}
-  aside .nav-icon{width:21px;height:21px;flex-basis:21px}
-  aside .nav-icon svg{width:21px;height:21px}
-  .main{margin-left:0;padding-bottom:76px}
-  .saved-edge-link{right:12px;bottom:84px;z-index:75}
-  header{position:sticky;top:0;z-index:60;background:rgba(247,248,243,.94);backdrop-filter:blur(12px)}
-  .message-thread{max-height:none;min-height:calc(100dvh - 330px)}
-  .message-composer{position:sticky;bottom:74px;z-index:35;padding:8px 0 max(4px,env(safe-area-inset-bottom));background:linear-gradient(to top,var(--paper) 70%,rgba(247,248,243,0))}
-  .reply-composer-preview,.message-images-preview,.message-upload-progress,.message-access-notice{position:relative;z-index:36}
-}
-
 /* Settings skeleton + mobile card polish */
 .settings-skeleton{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .settings-skeleton-card{min-height:150px;padding:20px;overflow:hidden}
@@ -542,14 +523,6 @@ body{overflow-x:hidden}
 .message-edit-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 
 @media(max-width:420px){
-  header>span{display:none}
-  header{justify-content:flex-end;padding-left:12px;padding-right:12px}
-  header>div{gap:8px}
-  main{padding-left:12px;padding-right:12px}
-  aside{padding-left:6px;padding-right:6px}
-  aside nav a{font-size:7px;padding:6px 1px}
-  aside .nav-icon,aside .nav-icon svg{width:20px;height:20px}
-  .saved-edge-link{right:10px}
   .profile{padding:16px;gap:12px}
   .profile>.avatar{width:54px;height:54px;flex-basis:54px}
   .profile-name-row{display:block}
@@ -563,38 +536,12 @@ body{overflow-x:hidden}
   .profile-actions{gap:5px}
   .profile-actions .reaction,.profile-actions .quiet-action{font-size:9px;padding:7px 8px}
   .profile-share-icon{width:34px;height:34px}
-  .profile-stats-drawer{left:8px;right:8px;bottom:78px;max-height:56dvh}
+  .profile-stats-drawer{left:8px;right:8px;bottom:12px;max-height:56dvh}
   .people-search-heading h1{font-size:30px}
   .people-search-heading .muted{font-size:11px}
   .people-grid{grid-template-columns:1fr}
   .person-card{padding:13px}
   .person-card .avatar{width:42px;height:42px}
-  .messages-heading{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
-  .messages-heading>.underlink{grid-column:1/-1}
-  .thread-search{grid-column:1/-1;order:3;width:100%}
-  .thread-search input{width:100%}
-  .thread-clear-button{order:2}
-  .message-peer{justify-self:end;max-width:160px;min-width:0}
-  .message-peer>div{min-width:0}
-  .message-peer strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .message-thread{padding:10px;gap:8px;min-height:calc(100dvh - 350px)}
-  .message-bubble-shell{max-width:92%}
-  .message-bubble{padding:9px 10px}
-  .message-bubble p{font-size:12px}
-  .message-image-grid{max-width:240px}
-  .message-image-grid .message-image{height:95px}
-  .message-composer{grid-template-columns:auto minmax(0,1fr);gap:7px}
-  .message-composer .primary{grid-column:1/-1;min-width:0}
-  .message-attachment-control{align-self:stretch}
-  .message-attachment-button{height:100%;min-height:48px}
-  .message-input-wrap textarea{min-height:48px}
-  .conversation-row-link{padding:11px 42px 11px 11px}
-  .conversation-row .avatar{width:38px;height:38px}
-  .conversation-copy strong{font-size:11px}
-  .conversation-copy strong span{display:none}
-  .conversation-copy p{font-size:10px}
-  .conversation-copy small{font-size:8px}
-  .conversation-unread{min-width:20px;height:20px;padding:0 6px;font-size:9px}
   .message-edit-overlay{align-items:flex-end;padding:10px}
   .message-edit-card{border-radius:16px;padding:18px}
   .message-edit-card h2{font-size:20px}
