@@ -593,7 +593,7 @@ export default function MessagesCenter({
                 </small>
               </div>
               {!row.deleted_at && <div className="message-context-wrap">
-                <button type="button" className="message-context-trigger" aria-label="Действия с сообщением" onClick={() => setContextMessageId(current => current === row.id ? null : row.id)}>•••</button>
+                <button type="button" className="message-context-trigger" aria-label="Действия с сообщением" onClick={() => setContextMessageId(current => current === row.id ? null : row.id)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button>
                 {contextMessageId === row.id && <div className="message-context-menu">
                   <button type="button" onClick={() => { setReplyTo(row); setContextMessageId(null); }}>Ответить</button>
                   <button type="button" onClick={() => void togglePin(row)}>{pinnedIds.has(row.id) ? 'Открепить' : 'Закрепить'}</button>
