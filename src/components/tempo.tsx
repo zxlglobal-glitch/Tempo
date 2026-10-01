@@ -28,6 +28,25 @@ const profileThemes = [
 ] as const;
 const profileThemeIds = profileThemes.map(theme => theme.id);
 
+function normalizeEmail(value: FormDataEntryValue | null) {
+  return String(value ?? '').trim().toLowerCase();
+}
+
+function authErrorMessage(error: unknown) {
+  const raw = error instanceof Error ? error.message : String((error as { message?: string })?.message ?? '');
+  const text = raw.toLowerCase();
+  if (text.includes('email address not authorized')) {
+    return 'Сейчас почтовый сервер TEMPO не может отправить письмо на этот адрес. Администратору нужно подключить внешний SMTP для регистрации на любые email.';
+  }
+  if (text.includes('rate limit') || text.includes('email rate limit exceeded')) {
+    return 'Слишком много писем отправлено за короткое время. Попробуйте позже или используйте повторную отправку после снятия лимита.';
+  }
+  if (text.includes('invalid email') || text.includes('email address') && text.includes('invalid')) {
+    return 'Проверьте email: адрес введён некорректно.';
+  }
+  return raw || 'Не удалось выполнить операцию с аккаунтом. Попробуйте ещё раз.';
+}
+
 export default function Tempo() {
   const path = usePathname(); const router = useRouter();
   const [notice, setNotice] = useState('');
@@ -299,7 +318,7 @@ export default function Tempo() {
     setBusy(true); setMessage(''); const form = new FormData(event.currentTarget); const uploaded: string[] = [];
     try {
 if (isForgot) {
-  const email = String(form.get('email')).trim();
+  const email = normalizeEmail(form.get('email'));
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${window.location.origin}/reset-password`,
   });
@@ -309,7 +328,7 @@ if (isForgot) {
 }
 
 if (isResend) {
-  const email = String(form.get('email')).trim();
+  const email = normalizeEmail(form.get('email'));
   const { error } = await supabase.auth.resend({
     type: 'signup',
     email,
@@ -330,7 +349,7 @@ if (isReset) {
   return;
 }
       if (isAuth) {
-        const email = String(form.get('email')); const password = String(form.get('password'));
+        const email = normalizeEmail(form.get('email')); const password = String(form.get('password'));
         if (path === '/register') {
           const username = String(form.get('username') ?? '').trim().replace(/^@+/, '').toLowerCase();
           if (!/^[a-z0-9_]{3,24}$/.test(username)) throw new Error('Логин должен содержать 3–24 символа: латинские буквы, цифры или _.');
@@ -401,7 +420,7 @@ if (isReset) {
       }
     } catch (e) {
       if (uploaded.length) await supabase.storage.from(isEdit ? 'avatars' : 'photos').remove(uploaded);
-      setMessage(e instanceof Error ? e.message : (e as { message?: string })?.message ?? 'Не удалось сохранить. Попробуйте ещё раз.');
+      setMessage((isAuth || isForgot || isResend || isReset) ? authErrorMessage(e) : (e instanceof Error ? e.message : (e as { message?: string })?.message ?? 'Не удалось сохранить. Попробуйте ещё раз.'));
     } finally { setBusy(false); }
   }
   useEffect(() => {
