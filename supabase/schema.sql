@@ -1267,3 +1267,73 @@ create index if not exists workout_comments_user_created_idx on public.workout_c
 create index if not exists direct_messages_image_paths_gin_idx on public.direct_messages using gin(image_paths);
 commit;
 
+
+
+-- Tempo comment replies and editing
+begin;
+
+alter table public.workout_comments
+  add column if not exists reply_to_id uuid null,
+  add column if not exists edited_at timestamptz null;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'workout_comments_reply_to_id_fkey'
+      and conrelid = 'public.workout_comments'::regclass
+  ) then
+    alter table public.workout_comments
+      add constraint workout_comments_reply_to_id_fkey
+      foreign key (reply_to_id)
+      references public.workout_comments(id)
+      on delete set null;
+  end if;
+end $$;
+
+create index if not exists workout_comments_reply_to_id_idx
+  on public.workout_comments(reply_to_id)
+  where reply_to_id is not null;
+
+drop policy if exists tempo_workout_comments_no_update_v1 on public.workout_comments;
+drop policy if exists tempo_workout_comments_update_own_v1 on public.workout_comments;
+create policy tempo_workout_comments_update_own_v1
+  on public.workout_comments
+  for update
+  to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+
+revoke update on table public.workout_comments from authenticated;
+grant update (body, edited_at) on table public.workout_comments to authenticated;
+
+drop policy if exists tempo_workout_comments_insert_v2 on public.workout_comments;
+create policy tempo_workout_comments_insert_v2
+  on public.workout_comments
+  for insert
+  to authenticated
+  with check (
+    (select auth.uid()) = workout_comments.user_id
+    and not exists (
+      select 1
+      from public.workouts w
+      join public.user_blocks b
+        on (
+          (b.blocker_id = workout_comments.user_id and b.blocked_id = w.user_id)
+          or
+          (b.blocker_id = w.user_id and b.blocked_id = workout_comments.user_id)
+        )
+      where w.id = workout_comments.workout_id
+    )
+    and (
+      workout_comments.reply_to_id is null
+      or exists (
+        select 1
+        from public.workout_comments parent_comment
+        where parent_comment.id = workout_comments.reply_to_id
+          and parent_comment.workout_id = workout_comments.workout_id
+      )
+    )
+  );
+
+commit;
