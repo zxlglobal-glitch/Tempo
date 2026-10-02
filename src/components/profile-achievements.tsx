@@ -24,12 +24,64 @@ type AchievementItem = AchievementDefinition & {
   unlocked_at: string | null;
 };
 
-const rarityLabel: Record<AchievementDefinition['rarity'], string> = {
-  common: 'Обычная',
-  rare: 'Редкая',
-  epic: 'Эпическая',
+type CoinTier = 'bronze' | 'silver' | 'gold' | 'platinum' | 'legendary';
+
+const coinTierLabel: Record<CoinTier, string> = {
+  bronze: 'Бронза',
+  silver: 'Серебро',
+  gold: 'Золото',
+  platinum: 'Платина',
   legendary: 'Легендарная',
 };
+
+const coinTierRank: Record<CoinTier, number> = {
+  bronze: 1,
+  silver: 2,
+  gold: 3,
+  platinum: 4,
+  legendary: 5,
+};
+
+const coinTierByAchievement: Record<string, CoinTier> = {
+  first_move: 'bronze',
+  three_moves: 'bronze',
+  five_hours: 'bronze',
+  explorer_3: 'bronze',
+  comments_10: 'bronze',
+
+  ten_moves: 'silver',
+  explorer_6: 'silver',
+  long_session: 'silver',
+  streak_4: 'silver',
+  followers_10: 'silver',
+
+  twenty_five_moves: 'gold',
+  day_in_motion: 'gold',
+  explorer_10: 'gold',
+  reactions_25: 'gold',
+
+  fifty_moves: 'platinum',
+  three_hour_session: 'platinum',
+  streak_8: 'platinum',
+  comments_50: 'platinum',
+
+  hundred_moves: 'legendary',
+  fifty_hours: 'legendary',
+  streak_12: 'legendary',
+  reactions_100: 'legendary',
+};
+
+function coinTier(item: AchievementDefinition): CoinTier {
+  return coinTierByAchievement[item.id] ?? (
+    item.rarity === 'legendary' ? 'legendary' :
+    item.rarity === 'epic' ? 'platinum' :
+    item.rarity === 'rare' ? 'gold' : 'bronze'
+  );
+}
+
+function coinSrc(item: AchievementDefinition) {
+  return `/achievements/${coinTier(item)}.webp`;
+}
 
 const categoryLabel: Record<AchievementDefinition['category'], string> = {
   movement: 'Движение',
@@ -37,12 +89,7 @@ const categoryLabel: Record<AchievementDefinition['category'], string> = {
   community: 'Сообщество',
 };
 
-const rarityRank: Record<AchievementDefinition['rarity'], number> = {
-  common: 1,
-  rare: 2,
-  epic: 3,
-  legendary: 4,
-};
+
 
 export default function ProfileAchievements({ profileId }: { profileId: string }) {
   const [items, setItems] = useState<AchievementItem[]>([]);
@@ -110,8 +157,8 @@ export default function ProfileAchievements({ profileId }: { profileId: string }
     () => unlocked
       .slice()
       .sort((a,b) => {
-        const rarity = rarityRank[b.rarity] - rarityRank[a.rarity];
-        if (rarity) return rarity;
+        const tier = coinTierRank[coinTier(b)] - coinTierRank[coinTier(a)];
+        if (tier) return tier;
         return new Date(b.unlocked_at ?? 0).getTime() - new Date(a.unlocked_at ?? 0).getTime();
       })
       .slice(0,3),
@@ -135,11 +182,12 @@ export default function ProfileAchievements({ profileId }: { profileId: string }
       aria-label="Открыть достижения"
       title="Достижения"
     >
-      {featured.length ? featured.map(item =>
-        <span key={item.id} className={`achievement-mini rarity-${item.rarity}`} title={item.title}>
-          {item.icon}
-        </span>
-      ) : <span className="achievement-mini achievement-mini-empty">✦</span>}
+      {featured.length ? featured.map(item => {
+        const tier = coinTier(item);
+        return <span key={item.id} className={`achievement-mini coin-${tier}`} title={`${item.title} · ${coinTierLabel[tier]}`}>
+          <img src={coinSrc(item)} alt="" width="28" height="28" />
+        </span>;
+      }) : <span className="achievement-mini achievement-mini-empty"><img src="/achievements/bronze.webp" alt="" width="28" height="28" /></span>}
       <span className="achievement-preview-count">{unlocked.length}</span>
     </button>
 
@@ -182,21 +230,26 @@ export default function ProfileAchievements({ profileId }: { profileId: string }
               <small>{grouped[category].filter(item => item.unlocked).length}/{grouped[category].length}</small>
             </div>
             <div className="achievement-list">
-              {grouped[category].map(item => <article
-                key={item.id}
-                className={`achievement-card rarity-${item.rarity} ${item.unlocked ? 'unlocked' : 'locked'}`}
-              >
-                <div className="achievement-medal" aria-hidden="true">{item.icon}</div>
+              {grouped[category].map(item => {
+                const tier = coinTier(item);
+                return <article
+                  key={item.id}
+                  className={`achievement-card coin-${tier} ${item.unlocked ? 'unlocked' : 'locked'}`}
+                >
+                <div className="achievement-medal" aria-hidden="true">
+                  <img src={coinSrc(item)} alt="" width="56" height="56" loading="lazy" />
+                </div>
                 <div className="achievement-copy">
                   <div>
                     <strong>{item.title}</strong>
-                    <span>{rarityLabel[item.rarity]}</span>
+                    <span>{coinTierLabel[tier]}</span>
                   </div>
                   <p>{item.description}</p>
                   {item.unlocked_at && <small>Получено {new Date(item.unlocked_at).toLocaleDateString('ru-RU')}</small>}
                 </div>
                 {item.unlocked && <b className="achievement-check" aria-label="Получено">✓</b>}
-              </article>)}
+              </article>;
+              })}
             </div>
           </section>)}
         </div>
