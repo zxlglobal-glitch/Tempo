@@ -1497,3 +1497,222 @@ after insert or update of weight_kg on public.profile_fitness_private
 for each row execute function public.track_profile_weight_change();
 
 commit;
+
+
+-- Tempo public achievements
+begin;
+
+create table if not exists public.achievement_definitions (
+  id text primary key,
+  title text not null,
+  description text not null,
+  icon text not null,
+  category text not null check (category in ('movement','rhythm','community')),
+  rarity text not null check (rarity in ('common','rare','epic','legendary')),
+  sort_order integer not null default 0
+);
+
+create table if not exists public.user_achievements (
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  achievement_id text not null references public.achievement_definitions(id) on delete cascade,
+  unlocked_at timestamptz not null default now(),
+  primary key (user_id, achievement_id)
+);
+
+create index if not exists user_achievements_user_unlocked_idx
+  on public.user_achievements(user_id, unlocked_at desc);
+
+alter table public.achievement_definitions enable row level security;
+alter table public.user_achievements enable row level security;
+
+revoke all on table public.achievement_definitions from anon, authenticated;
+revoke all on table public.user_achievements from anon, authenticated;
+grant select on table public.achievement_definitions to anon, authenticated;
+grant select on table public.user_achievements to anon, authenticated;
+
+drop policy if exists achievement_definitions_read_all on public.achievement_definitions;
+create policy achievement_definitions_read_all
+  on public.achievement_definitions for select to anon, authenticated
+  using (true);
+
+drop policy if exists user_achievements_read_all on public.user_achievements;
+create policy user_achievements_read_all
+  on public.user_achievements for select to anon, authenticated
+  using (true);
+
+insert into public.achievement_definitions(id,title,description,icon,category,rarity,sort_order) values
+  ('first_move','Первый шаг','Опубликовать первую тренировку','✦','movement','common',10),
+  ('three_moves','Поймал темп','Опубликовать 3 тренировки','◈','movement','common',20),
+  ('ten_moves','Десятка','Опубликовать 10 тренировок','◆','movement','rare',30),
+  ('twenty_five_moves','Привычка','Опубликовать 25 тренировок','⬡','movement','rare',40),
+  ('fifty_moves','Полтинник','Опубликовать 50 тренировок','✹','movement','epic',50),
+  ('hundred_moves','Сотня','Опубликовать 100 тренировок','★','movement','legendary',60),
+  ('five_hours','5 часов движения','Набрать 300 минут тренировок','◒','movement','common',70),
+  ('day_in_motion','Сутки в движении','Набрать 1 440 минут тренировок','◐','movement','epic',80),
+  ('fifty_hours','50 часов движения','Набрать 3 000 минут тренировок','◉','movement','legendary',90),
+  ('explorer_3','Исследователь','Попробовать 3 разные категории тренировок','△','movement','common',100),
+  ('explorer_6','Разносторонний','Попробовать 6 разных категорий тренировок','⬢','movement','rare',110),
+  ('explorer_10','Без границ','Попробовать 10 разных категорий тренировок','✧','movement','epic',120),
+  ('long_session','Длинная дистанция','Провести тренировку длительностью не менее 90 минут','▰','movement','rare',130),
+  ('three_hour_session','Большой день','Провести тренировку длительностью не менее 180 минут','▣','movement','epic',140),
+  ('streak_4','Месяц в ритме','Тренироваться хотя бы раз в неделю 4 недели подряд','⌁','rhythm','rare',200),
+  ('streak_8','Держит ритм','Тренироваться хотя бы раз в неделю 8 недель подряд','≋','rhythm','epic',210),
+  ('streak_12','Не сбавляет темп','Тренироваться хотя бы раз в неделю 12 недель подряд','∞','rhythm','legendary',220),
+  ('comments_10','На связи','Оставить 10 комментариев под тренировками','◌','community','common',300),
+  ('comments_50','Голос сообщества','Оставить 50 комментариев','◎','community','epic',310),
+  ('followers_10','Собирает людей','Получить 10 подписчиков','◇','community','rare',320),
+  ('reactions_25','Вдохновляет','Получить 25 реакций на свои тренировки','❋','community','rare',330),
+  ('reactions_100','Зажигает','Получить 100 реакций на свои тренировки','✺','community','legendary',340)
+on conflict (id) do update set
+  title=excluded.title,
+  description=excluded.description,
+  icon=excluded.icon,
+  category=excluded.category,
+  rarity=excluded.rarity,
+  sort_order=excluded.sort_order;
+
+create or replace function public.refresh_user_achievements(target_user uuid)
+returns void
+language plpgsql
+security definer
+set search_path=''
+as $$
+declare
+  workout_count integer := 0;
+  total_minutes integer := 0;
+  category_count integer := 0;
+  max_duration integer := 0;
+  max_week_streak integer := 0;
+  comments_count integer := 0;
+  followers_count integer := 0;
+  reactions_received integer := 0;
+begin
+  if target_user is null then return; end if;
+
+  select count(*)::int, coalesce(sum(w.duration),0)::int,
+         count(distinct w.category)::int, coalesce(max(w.duration),0)::int
+  into workout_count,total_minutes,category_count,max_duration
+  from public.workouts w where w.user_id=target_user;
+
+  with weeks as (
+    select distinct date_trunc('week', w.created_at)::date as week_start
+    from public.workouts w where w.user_id=target_user
+  ),
+  numbered as (
+    select week_start,
+           week_start - (row_number() over(order by week_start)::int * 7) as grp
+    from weeks
+  ),
+  runs as (
+    select count(*)::int as run_length from numbered group by grp
+  )
+  select coalesce(max(run_length),0) into max_week_streak from runs;
+
+  select count(*)::int into comments_count
+  from public.workout_comments c where c.user_id=target_user;
+
+  select count(*)::int into followers_count
+  from public.follows f where f.following_id=target_user;
+
+  select count(*)::int into reactions_received
+  from public.workout_reactions r
+  join public.workouts w on w.id=r.workout_id
+  where w.user_id=target_user;
+
+  insert into public.user_achievements(user_id,achievement_id)
+  select target_user, d.id
+  from public.achievement_definitions d
+  where
+    (d.id='first_move' and workout_count>=1)
+    or (d.id='three_moves' and workout_count>=3)
+    or (d.id='ten_moves' and workout_count>=10)
+    or (d.id='twenty_five_moves' and workout_count>=25)
+    or (d.id='fifty_moves' and workout_count>=50)
+    or (d.id='hundred_moves' and workout_count>=100)
+    or (d.id='five_hours' and total_minutes>=300)
+    or (d.id='day_in_motion' and total_minutes>=1440)
+    or (d.id='fifty_hours' and total_minutes>=3000)
+    or (d.id='explorer_3' and category_count>=3)
+    or (d.id='explorer_6' and category_count>=6)
+    or (d.id='explorer_10' and category_count>=10)
+    or (d.id='long_session' and max_duration>=90)
+    or (d.id='three_hour_session' and max_duration>=180)
+    or (d.id='streak_4' and max_week_streak>=4)
+    or (d.id='streak_8' and max_week_streak>=8)
+    or (d.id='streak_12' and max_week_streak>=12)
+    or (d.id='comments_10' and comments_count>=10)
+    or (d.id='comments_50' and comments_count>=50)
+    or (d.id='followers_10' and followers_count>=10)
+    or (d.id='reactions_25' and reactions_received>=25)
+    or (d.id='reactions_100' and reactions_received>=100)
+  on conflict (user_id,achievement_id) do nothing;
+end;
+$$;
+
+revoke all on function public.refresh_user_achievements(uuid) from public, anon, authenticated;
+
+create or replace function public.achievement_refresh_from_workout()
+returns trigger language plpgsql security definer set search_path='' as $$
+begin
+  perform public.refresh_user_achievements(coalesce(new.user_id,old.user_id));
+  if tg_op='UPDATE' and new.user_id is distinct from old.user_id then
+    perform public.refresh_user_achievements(old.user_id);
+  end if;
+  return coalesce(new,old);
+end;
+$$;
+
+create or replace function public.achievement_refresh_from_comment()
+returns trigger language plpgsql security definer set search_path='' as $$
+begin
+  perform public.refresh_user_achievements(coalesce(new.user_id,old.user_id));
+  return coalesce(new,old);
+end;
+$$;
+
+create or replace function public.achievement_refresh_from_follow()
+returns trigger language plpgsql security definer set search_path='' as $$
+begin
+  perform public.refresh_user_achievements(coalesce(new.following_id,old.following_id));
+  return coalesce(new,old);
+end;
+$$;
+
+create or replace function public.achievement_refresh_from_reaction()
+returns trigger language plpgsql security definer set search_path='' as $$
+declare owner_id uuid;
+begin
+  select w.user_id into owner_id
+  from public.workouts w
+  where w.id=coalesce(new.workout_id,old.workout_id);
+  perform public.refresh_user_achievements(owner_id);
+  return coalesce(new,old);
+end;
+$$;
+
+revoke all on function public.achievement_refresh_from_workout() from public, anon, authenticated;
+revoke all on function public.achievement_refresh_from_comment() from public, anon, authenticated;
+revoke all on function public.achievement_refresh_from_follow() from public, anon, authenticated;
+revoke all on function public.achievement_refresh_from_reaction() from public, anon, authenticated;
+
+drop trigger if exists achievement_refresh_workout_trigger on public.workouts;
+create trigger achievement_refresh_workout_trigger
+after insert or update or delete on public.workouts
+for each row execute function public.achievement_refresh_from_workout();
+
+drop trigger if exists achievement_refresh_comment_trigger on public.workout_comments;
+create trigger achievement_refresh_comment_trigger
+after insert or delete on public.workout_comments
+for each row execute function public.achievement_refresh_from_comment();
+
+drop trigger if exists achievement_refresh_follow_trigger on public.follows;
+create trigger achievement_refresh_follow_trigger
+after insert or delete on public.follows
+for each row execute function public.achievement_refresh_from_follow();
+
+drop trigger if exists achievement_refresh_reaction_trigger on public.workout_reactions;
+create trigger achievement_refresh_reaction_trigger
+after insert or delete on public.workout_reactions
+for each row execute function public.achievement_refresh_from_reaction();
+
+commit;
