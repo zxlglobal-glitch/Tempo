@@ -733,7 +733,7 @@ body{overflow-x:hidden}
 .achievement-mini.rarity-legendary{background:#faf4e5}
 .achievement-mini-empty{opacity:.45}
 .achievement-preview-count{margin-left:3px;font-size:9px;font-weight:800;color:var(--muted)}
-.achievements-drawer{position:absolute;right:0;top:0;z-index:165;width:min(460px,calc(100vw - 32px));max-height:72vh;overflow:auto;padding:18px;border:1px solid var(--line);border-radius:18px;background:#fff;box-shadow:0 24px 70px rgba(31,43,38,.22);opacity:0;pointer-events:none;transform:translateX(18px);transition:transform .2s ease,opacity .18s ease}
+.achievements-drawer{position:fixed;right:24px;top:24px;bottom:24px;z-index:205;width:min(460px,calc(100vw - 48px));max-height:none;overflow:auto;padding:18px;border:1px solid var(--line);border-radius:18px;background:#fff;box-shadow:0 24px 70px rgba(31,43,38,.22);opacity:0;pointer-events:none;transform:translateX(calc(100% + 48px));transition:transform .24s ease,opacity .18s ease}
 .achievements-drawer.open{opacity:1;pointer-events:auto;transform:translateX(0)}
 .achievements-drawer-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding-bottom:14px;border-bottom:1px solid var(--line)}
 .achievements-drawer-head strong{display:block;font-size:20px}
