@@ -101,11 +101,11 @@ export function ProfileFitnessEditor({ userId }: { userId?: string }) {
 
     <div className="fitness-form-grid">
       <label>Рост, см
-        <input name="height_cm" type="number" min="100" max="250" step="0.1" defaultValue={row?.height_cm ?? ''} placeholder="184" />
+        <input name="height_cm" type="text" inputMode="decimal" defaultValue={row?.height_cm ?? ''} placeholder="184" autoComplete="off" />
         <VisibilityToggle name="show_height" defaultChecked={row?.show_height ?? true} />
       </label>
       <label>Вес, кг
-        <input name="weight_kg" type="number" min="30" max="350" step="0.1" defaultValue={row?.weight_kg ?? ''} placeholder="80" />
+        <input name="weight_kg" type="text" inputMode="decimal" defaultValue={row?.weight_kg ?? ''} placeholder="80" autoComplete="off" />
         <VisibilityToggle name="show_weight" defaultChecked={row?.show_weight ?? false} />
       </label>
       <label>Дата рождения
@@ -304,15 +304,6 @@ export function ProfileFitnessStats({ profileId, viewerId, workoutStats }: {
           <span>изменение</span>
         </div>}
         <div><strong>{history.length}</strong><span>замеров</span></div>
-      </div>
-      <div className="fitness-sparkline" aria-label="История веса">
-        {history.slice().reverse().map((point,index,arr) => {
-          const weights = arr.map(item => Number(item.weight_kg));
-          const min = Math.min(...weights), max = Math.max(...weights);
-          const range = Math.max(1, max - min);
-          const height = 22 + ((Number(point.weight_kg) - min) / range) * 34;
-          return <i key={`${point.recorded_at}-${index}`} style={{ height: `${height}px` }} title={`${point.weight_kg} кг`} />;
-        })}
       </div>
     </section>}
   </div>;
