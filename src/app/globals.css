@@ -880,3 +880,186 @@ body{overflow-x:hidden}
   .achievement-list{grid-template-columns:1fr}
   .achievement-card{min-height:0}
 }
+
+
+/* Achievement coins + stable profile stats */
+.profile-achievement-preview{min-height:32px;padding:2px 8px 2px 4px;gap:1px}
+.achievement-mini{
+  width:28px;
+  height:28px;
+  border:0;
+  background:transparent!important;
+  box-shadow:none;
+  overflow:visible;
+}
+.achievement-mini+.achievement-mini{margin-left:-8px}
+.achievement-mini img{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  filter:drop-shadow(0 2px 3px rgba(25,30,27,.2));
+}
+.achievement-mini.coin-gold img{filter:drop-shadow(0 2px 4px rgba(155,104,14,.28))}
+.achievement-mini.coin-platinum img{filter:drop-shadow(0 2px 4px rgba(91,105,139,.28))}
+.achievement-mini.coin-legendary img{filter:drop-shadow(0 2px 5px rgba(11,104,77,.34))}
+.achievement-mini-empty{opacity:.32;filter:grayscale(.7)}
+
+.achievement-medal{
+  width:54px;
+  height:54px;
+  flex:0 0 54px;
+  border:0;
+  border-radius:0;
+  background:transparent!important;
+  overflow:visible;
+}
+.achievement-medal img{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  filter:drop-shadow(0 4px 6px rgba(24,32,28,.18));
+}
+.achievement-card{grid-template-columns:54px minmax(0,1fr) 20px;padding:10px 11px}
+.achievement-card.unlocked.coin-bronze{background:linear-gradient(135deg,#fff,#fbf4ed)}
+.achievement-card.unlocked.coin-silver{background:linear-gradient(135deg,#fff,#f1f4f6)}
+.achievement-card.unlocked.coin-gold{background:linear-gradient(135deg,#fff,#fbf6e9)}
+.achievement-card.unlocked.coin-platinum{background:linear-gradient(135deg,#fff,#f2f3f8)}
+.achievement-card.unlocked.coin-legendary{background:linear-gradient(135deg,#fff,#edf7f2);border-color:#c9ddd2}
+.achievement-card.coin-legendary.unlocked{box-shadow:0 8px 24px rgba(30,92,67,.08)}
+.achievement-card.locked .achievement-medal img{filter:grayscale(1) opacity(.58)}
+.achievement-card.locked{filter:none;opacity:.48}
+
+.profile-fitness-summary{
+  width:min(520px,100%);
+  margin:13px 0 4px;
+  padding:11px 12px;
+  border:1px solid rgba(205,213,204,.9);
+  border-radius:12px;
+  background:rgba(255,255,255,.68);
+  backdrop-filter:blur(5px);
+}
+.profile-fitness-summary-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.profile-fitness-summary-head>span{font-size:8px;font-weight:800;letter-spacing:.16em;color:var(--muted)}
+.profile-fitness-summary-head>small{font-size:8px;color:var(--muted)}
+.profile-fitness-summary-metrics{display:flex;align-items:stretch;gap:6px;flex-wrap:wrap}
+.profile-fitness-summary-metrics>span{
+  min-width:72px;
+  display:grid;
+  gap:2px;
+  padding:7px 9px;
+  border-radius:9px;
+  background:rgba(247,249,245,.94);
+}
+.profile-fitness-summary-metrics small{font-size:7px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.profile-fitness-summary-metrics strong{font-size:11px;color:var(--ink)}
+.profile-fitness-summary>p{margin:8px 0 0!important;font-size:10px!important;color:var(--muted)!important}
+.profile-fitness-empty-link{display:inline-flex;margin:10px 0 2px;font-size:9px;color:var(--green);text-decoration:none}
+
+.profile-stats-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:988;
+  border:0;
+  background:rgba(22,30,27,.16);
+  backdrop-filter:blur(2px);
+  -webkit-backdrop-filter:blur(2px);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .18s ease;
+}
+.profile-stats-backdrop.open{opacity:1;pointer-events:auto}
+.profile-stats-drawer{
+  position:fixed;
+  right:24px;
+  top:24px;
+  bottom:24px;
+  left:auto;
+  z-index:989;
+  width:min(440px,calc(100vw - 48px));
+  height:auto;
+  max-height:none;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  padding:18px;
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:#fff;
+  box-shadow:0 24px 70px rgba(31,43,38,.22);
+  transform:translateX(calc(100% + 48px));
+  opacity:0;
+  pointer-events:none;
+  transition:transform .24s ease,opacity .18s ease;
+}
+.profile-stats-drawer.open{transform:translateX(0);opacity:1;pointer-events:auto}
+.profile-stats-drawer-head{
+  flex:0 0 auto;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:0;
+  padding:0 0 14px;
+  border-bottom:1px solid var(--line);
+}
+.profile-stats-drawer-head .eyebrow{margin:0 0 3px}
+.profile-stats-drawer-head strong{font-size:20px;letter-spacing:0;text-transform:none;color:var(--ink)}
+.profile-stats-drawer-head button{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:36px;
+  height:36px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#fafbf8;
+  color:var(--muted);
+  font-size:22px;
+}
+.profile-stats-scroll{min-height:0;overflow:auto;padding-right:2px}
+.profile-stats-toggle{z-index:8}
+
+@media(max-width:700px){
+  .profile-fitness-summary{margin-top:11px;padding:10px}
+  .profile-fitness-summary-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .profile-fitness-summary-metrics>span{min-width:0}
+  .profile-with-stats{padding-right:42px}
+
+  .profile-stats-backdrop{background:rgba(22,30,27,.24)}
+  .profile-stats-drawer{
+    inset:0;
+    width:100%;
+    height:100dvh;
+    max-height:none;
+    padding:0;
+    border:0;
+    border-radius:0;
+    background:#f7f8f4;
+    transform:translateY(100%);
+  }
+  .profile-stats-drawer.open{transform:translateY(0)}
+  .profile-stats-drawer-head{
+    position:sticky;
+    top:0;
+    z-index:2;
+    padding:16px 18px 14px;
+    background:rgba(255,255,255,.96);
+    backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+  }
+  .profile-stats-scroll{
+    padding:8px 14px calc(24px + env(safe-area-inset-bottom));
+    overflow:auto;
+  }
+  .profile-stats-toggle{top:auto;bottom:14px;right:0;transform:none;height:46px}
+  .fitness-stat-grid,.fitness-stat-grid-training{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .fitness-activity-strip{align-items:flex-start;flex-direction:column}
+  .achievement-card{grid-template-columns:48px minmax(0,1fr) 18px}
+  .achievement-medal{width:48px;height:48px;flex-basis:48px}
+}
+
+@media(max-width:390px){
+  .profile-fitness-summary-metrics{grid-template-columns:1fr 1fr}
+}
