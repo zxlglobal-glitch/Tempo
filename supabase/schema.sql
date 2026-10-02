@@ -1392,7 +1392,7 @@ revoke all on table public.profile_fitness_public from anon, authenticated;
 revoke all on table public.profile_weight_history from anon, authenticated;
 
 grant select, insert, update on table public.profile_fitness_private to authenticated;
-grant select on table public.profile_fitness_public to authenticated;
+grant select on table public.profile_fitness_public to anon, authenticated;
 grant select, delete on table public.profile_weight_history to authenticated;
 
 drop policy if exists profile_fitness_private_own_select on public.profile_fitness_private;
@@ -1413,7 +1413,7 @@ create policy profile_fitness_private_own_update
 
 drop policy if exists profile_fitness_public_read on public.profile_fitness_public;
 create policy profile_fitness_public_read
-  on public.profile_fitness_public for select to authenticated
+  on public.profile_fitness_public for select to anon, authenticated
   using (true);
 
 drop policy if exists profile_weight_history_own_select on public.profile_weight_history;
