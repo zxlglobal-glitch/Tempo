@@ -171,7 +171,7 @@ export function ProfileFitnessStats({ profileId, viewerId, workoutStats }: {
         : 'user_id,height_cm,weight_kg,age,sex,goal,level,training_since';
       const { data } = await supabase.from(source).select(fields).eq('user_id', profileId).maybeSingle();
       if (!active) return;
-      setFitness(data ?? null);
+      setFitness((data as FitnessRow | null) ?? null);
       if (own) {
         const result = await supabase.from('profile_weight_history')
           .select('weight_kg,recorded_at')
