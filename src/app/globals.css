@@ -669,3 +669,56 @@ body{overflow-x:hidden}
   .comment-edit-footer{align-items:flex-start;flex-direction:column}
   .comment-edit-footer>div{width:100%;justify-content:flex-end}
 }
+
+
+/* Fitness profile editor + statistics */
+.fitness-editor-card{margin-top:26px;padding:20px;border:1px solid var(--line);border-radius:18px;background:linear-gradient(180deg,rgba(248,250,246,.9),rgba(255,255,255,.94))}
+.fitness-editor-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px}
+.fitness-editor-heading h2{margin:3px 0 0;font-size:20px}
+.fitness-editor-heading>span{font-size:10px;color:var(--muted)}
+.fitness-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.fitness-form-grid label,.fitness-since-field{margin:0}
+.fitness-form-grid select{width:100%;min-height:44px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);padding:0 12px;font:inherit}
+.fitness-visibility{display:flex;align-items:center;gap:7px;margin-top:7px;color:var(--muted);font-size:9px;font-weight:500;letter-spacing:0}
+.fitness-visibility input{width:14px!important;height:14px;min-height:0!important;margin:0;accent-color:var(--green)}
+.fitness-since-field{display:block;margin-top:14px!important}
+.fitness-since-field>input{max-width:260px}
+.fitness-privacy-note{margin:14px 0 0!important;font-size:10px!important;line-height:1.5;color:var(--muted)!important}
+
+.profile-stats-drawer{width:min(430px,calc(100vw - 40px))}
+.fitness-stats-shell{display:grid;gap:0}
+.fitness-stats-section{padding:17px 0;border-top:1px solid var(--line)}
+.fitness-stats-section:first-child{border-top:0;padding-top:6px}
+.fitness-section-label{margin:0 0 12px;font-size:9px;font-weight:800;letter-spacing:.18em;color:var(--muted)}
+.fitness-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.fitness-private-badge{padding:4px 7px;border:1px solid var(--line);border-radius:999px;font-size:8px;color:var(--muted);background:#fafbf8}
+.fitness-stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.fitness-stat-grid-training{grid-template-columns:repeat(2,minmax(0,1fr))}
+.fitness-metric{display:flex;flex-direction:column;justify-content:flex-end;min-height:72px;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(250,251,248,.82)}
+.fitness-metric strong{font-size:18px;line-height:1.05;overflow-wrap:anywhere}
+.fitness-metric small{margin-top:6px;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.08em}
+.fitness-activity-strip{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:9px;padding:10px 11px;border-radius:11px;background:#f3f6f0;font-size:10px;color:var(--muted)}
+.fitness-activity-strip strong{color:var(--ink)}
+.fitness-activity-strip .positive{color:#477148}
+.fitness-activity-strip .negative{color:#9a5a5a}
+.fitness-detail-list{display:grid;gap:0;margin-top:10px;border-top:1px solid var(--line)}
+.fitness-detail-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 2px;border-bottom:1px solid var(--line)}
+.fitness-detail-row span{font-size:10px;color:var(--muted)}
+.fitness-detail-row strong{font-size:11px;text-align:right}
+.fitness-empty{margin:0!important;color:var(--muted)!important;font-size:11px!important}
+.fitness-progress-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.fitness-progress-row>div{display:grid;gap:3px;padding:10px;border:1px solid var(--line);border-radius:11px}
+.fitness-progress-row strong{font-size:14px}
+.fitness-progress-row span{font-size:8px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.fitness-sparkline{height:68px;display:flex;align-items:flex-end;gap:4px;margin-top:12px;padding:8px 7px;border-radius:10px;background:#f5f7f3;overflow:hidden}
+.fitness-sparkline i{display:block;flex:1;min-width:3px;max-width:14px;border-radius:999px 999px 3px 3px;background:var(--green);opacity:.55}
+
+@media(max-width:700px){
+  .fitness-editor-card{padding:16px;margin-top:20px}
+  .fitness-editor-heading{align-items:flex-start;flex-direction:column;gap:5px}
+  .fitness-form-grid{grid-template-columns:1fr}
+  .fitness-since-field>input{max-width:none}
+  .profile-stats-drawer{width:auto}
+  .fitness-stat-grid,.fitness-stat-grid-training{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .fitness-activity-strip{align-items:flex-start;flex-direction:column}
+}
