@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - staging-social-upgrades
+      - work-achievement-coins-stats
   pull_request:
 
 jobs:
