@@ -145,7 +145,7 @@ export default function Tempo() {
     void loadUnreadMessages();
     const refresh = () => void loadUnreadMessages();
     const channel = db.channel(`tempo-unread-messages-${currentUserId}`)
-      .on('postgres_changes', { event:'*', schema:'public', table:'direct_messages' }, refresh)
+      .on('postgres_changes', { event:'*', schema:'public', table:'direct_messages', filter:`receiver_id=eq.${currentUserId}` }, refresh)
       .subscribe();
     window.addEventListener('focus', refresh);
     return () => { active = false; window.removeEventListener('focus', refresh); void db.removeChannel(channel); };
