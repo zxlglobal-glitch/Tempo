@@ -722,3 +722,50 @@ body{overflow-x:hidden}
   .fitness-stat-grid,.fitness-stat-grid-training{grid-template-columns:repeat(2,minmax(0,1fr))}
   .fitness-activity-strip{align-items:flex-start;flex-direction:column}
 }
+
+
+/* Public achievements */
+.profile-achievement-preview{display:inline-flex;align-items:center;gap:3px;margin-left:4px;padding:2px 7px 2px 3px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.78);cursor:pointer;vertical-align:middle}
+.achievement-mini{width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-size:12px;border:1px solid var(--line);background:#f7f8f4;box-shadow:0 2px 8px rgba(31,43,38,.06)}
+.achievement-mini+.achievement-mini{margin-left:-7px}
+.achievement-mini.rarity-rare{background:#eef4ef}
+.achievement-mini.rarity-epic{background:#f1edf7}
+.achievement-mini.rarity-legendary{background:#faf4e5}
+.achievement-mini-empty{opacity:.45}
+.achievement-preview-count{margin-left:3px;font-size:9px;font-weight:800;color:var(--muted)}
+.achievements-drawer{position:absolute;right:0;top:0;z-index:165;width:min(460px,calc(100vw - 32px));max-height:72vh;overflow:auto;padding:18px;border:1px solid var(--line);border-radius:18px;background:#fff;box-shadow:0 24px 70px rgba(31,43,38,.22);opacity:0;pointer-events:none;transform:translateX(18px);transition:transform .2s ease,opacity .18s ease}
+.achievements-drawer.open{opacity:1;pointer-events:auto;transform:translateX(0)}
+.achievements-drawer-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.achievements-drawer-head strong{display:block;font-size:20px}
+.achievements-drawer-head button{border:0;background:transparent;font-size:24px;line-height:1;color:var(--muted);cursor:pointer}
+.achievements-progress{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:14px 0 6px}
+.achievements-progress>div{display:grid;gap:3px;padding:11px;border:1px solid var(--line);border-radius:12px;background:#fafbf8}
+.achievements-progress strong{font-size:16px}
+.achievements-progress span{font-size:8px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.achievement-group{padding-top:15px}
+.achievement-group-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.achievement-group-title>span{font-size:9px;font-weight:800;letter-spacing:.15em;color:var(--muted)}
+.achievement-group-title small{font-size:9px;color:var(--muted)}
+.achievement-list{display:grid;gap:8px}
+.achievement-card{position:relative;display:grid;grid-template-columns:42px minmax(0,1fr) 20px;gap:10px;align-items:center;padding:11px;border:1px solid var(--line);border-radius:13px;background:#fff}
+.achievement-card.locked{opacity:.42;filter:grayscale(.8)}
+.achievement-card.unlocked.rarity-rare{background:linear-gradient(135deg,#fff,#f2f7f2)}
+.achievement-card.unlocked.rarity-epic{background:linear-gradient(135deg,#fff,#f4f0f8)}
+.achievement-card.unlocked.rarity-legendary{background:linear-gradient(135deg,#fff,#fbf5e7)}
+.achievement-medal{width:42px;height:42px;display:flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid var(--line);font-size:20px;background:#f8f9f6}
+.achievement-card.unlocked.rarity-rare .achievement-medal{background:#edf5ee}
+.achievement-card.unlocked.rarity-epic .achievement-medal{background:#f1edf8}
+.achievement-card.unlocked.rarity-legendary .achievement-medal{background:#faf1da}
+.achievement-copy{min-width:0}
+.achievement-copy>div{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.achievement-copy strong{font-size:12px}
+.achievement-copy>div span{font-size:8px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.achievement-copy p{margin:4px 0 0!important;font-size:10px!important;line-height:1.4;color:var(--muted)!important}
+.achievement-copy small{display:block;margin-top:4px;font-size:8px;color:var(--muted)}
+.achievement-check{font-size:14px;color:var(--green)}
+@media(max-width:700px){
+  .profile-name-row{flex-wrap:wrap}
+  .profile-achievement-preview{margin-left:0}
+  .achievements-drawer{position:fixed;left:10px;right:10px;top:auto;bottom:max(10px,env(safe-area-inset-bottom));width:auto;max-height:min(78dvh,650px);z-index:205;transform:translateY(calc(100% + 32px))}
+  .achievements-drawer.open{transform:translateY(0)}
+}
