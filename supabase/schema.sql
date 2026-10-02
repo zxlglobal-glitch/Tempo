@@ -1337,3 +1337,163 @@ create policy tempo_workout_comments_insert_v2
   );
 
 commit;
+
+
+-- Tempo fitness profile, visibility and private progress
+begin;
+
+create table if not exists public.profile_fitness_private (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  height_cm numeric(5,1) null check (height_cm between 100 and 250),
+  weight_kg numeric(5,1) null check (weight_kg between 30 and 350),
+  birth_date date null check (birth_date >= date '1900-01-01' and birth_date <= current_date),
+  sex text null check (sex in ('male','female','other','prefer_not')),
+  goal text null check (goal in ('muscle','fat_loss','maintain','endurance','mobility','health','performance')),
+  level text null check (level in ('beginner','regular','experienced')),
+  training_since date null check (training_since >= date '1950-01-01' and training_since <= current_date),
+  show_height boolean not null default true,
+  show_weight boolean not null default false,
+  show_age boolean not null default true,
+  show_sex boolean not null default true,
+  show_goal boolean not null default true,
+  show_level boolean not null default true,
+  show_training_since boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.profile_fitness_public (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  height_cm numeric(5,1) null,
+  weight_kg numeric(5,1) null,
+  age integer null,
+  sex text null,
+  goal text null,
+  level text null,
+  training_since date null,
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.profile_weight_history (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  weight_kg numeric(5,1) not null check (weight_kg between 30 and 350),
+  recorded_at timestamptz not null default now()
+);
+
+create index if not exists profile_weight_history_user_recorded_idx
+  on public.profile_weight_history(user_id, recorded_at desc);
+
+alter table public.profile_fitness_private enable row level security;
+alter table public.profile_fitness_public enable row level security;
+alter table public.profile_weight_history enable row level security;
+
+revoke all on table public.profile_fitness_private from anon, authenticated;
+revoke all on table public.profile_fitness_public from anon, authenticated;
+revoke all on table public.profile_weight_history from anon, authenticated;
+
+grant select, insert, update on table public.profile_fitness_private to authenticated;
+grant select on table public.profile_fitness_public to authenticated;
+grant select, delete on table public.profile_weight_history to authenticated;
+
+drop policy if exists profile_fitness_private_own_select on public.profile_fitness_private;
+create policy profile_fitness_private_own_select
+  on public.profile_fitness_private for select to authenticated
+  using ((select auth.uid()) = user_id);
+
+drop policy if exists profile_fitness_private_own_insert on public.profile_fitness_private;
+create policy profile_fitness_private_own_insert
+  on public.profile_fitness_private for insert to authenticated
+  with check ((select auth.uid()) = user_id);
+
+drop policy if exists profile_fitness_private_own_update on public.profile_fitness_private;
+create policy profile_fitness_private_own_update
+  on public.profile_fitness_private for update to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+
+drop policy if exists profile_fitness_public_read on public.profile_fitness_public;
+create policy profile_fitness_public_read
+  on public.profile_fitness_public for select to authenticated
+  using (true);
+
+drop policy if exists profile_weight_history_own_select on public.profile_weight_history;
+create policy profile_weight_history_own_select
+  on public.profile_weight_history for select to authenticated
+  using ((select auth.uid()) = user_id);
+
+drop policy if exists profile_weight_history_own_delete on public.profile_weight_history;
+create policy profile_weight_history_own_delete
+  on public.profile_weight_history for delete to authenticated
+  using ((select auth.uid()) = user_id);
+
+create or replace function public.sync_profile_fitness_public()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare computed_age integer;
+begin
+  computed_age := case
+    when new.birth_date is null then null
+    else extract(year from age(current_date, new.birth_date))::integer
+  end;
+
+  insert into public.profile_fitness_public (
+    user_id, height_cm, weight_kg, age, sex, goal, level, training_since, updated_at
+  ) values (
+    new.user_id,
+    case when new.show_height then new.height_cm else null end,
+    case when new.show_weight then new.weight_kg else null end,
+    case when new.show_age then computed_age else null end,
+    case when new.show_sex then new.sex else null end,
+    case when new.show_goal then new.goal else null end,
+    case when new.show_level then new.level else null end,
+    case when new.show_training_since then new.training_since else null end,
+    now()
+  )
+  on conflict (user_id) do update set
+    height_cm = excluded.height_cm,
+    weight_kg = excluded.weight_kg,
+    age = excluded.age,
+    sex = excluded.sex,
+    goal = excluded.goal,
+    level = excluded.level,
+    training_since = excluded.training_since,
+    updated_at = now();
+
+  return new;
+end;
+$$;
+
+revoke all on function public.sync_profile_fitness_public() from public, anon, authenticated;
+
+drop trigger if exists sync_profile_fitness_public_trigger on public.profile_fitness_private;
+create trigger sync_profile_fitness_public_trigger
+after insert or update on public.profile_fitness_private
+for each row execute function public.sync_profile_fitness_public();
+
+create or replace function public.track_profile_weight_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.weight_kg is not null
+     and (tg_op = 'INSERT' or new.weight_kg is distinct from old.weight_kg) then
+    insert into public.profile_weight_history(user_id, weight_kg, recorded_at)
+    values(new.user_id, new.weight_kg, now());
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.track_profile_weight_change() from public, anon, authenticated;
+
+drop trigger if exists track_profile_weight_change_trigger on public.profile_fitness_private;
+create trigger track_profile_weight_change_trigger
+after insert or update of weight_kg on public.profile_fitness_private
+for each row execute function public.track_profile_weight_change();
+
+commit;
