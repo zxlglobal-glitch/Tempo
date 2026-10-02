@@ -427,8 +427,10 @@ if (isReset) {
           if (error) throw error;
 
           const optionalNumber = (name: string) => {
-            const raw = String(form.get(name) ?? '').trim();
-            return raw ? Number(raw) : null;
+            const raw = String(form.get(name) ?? '').trim().replace(',', '.');
+            if (!raw) return null;
+            const value = Number(raw);
+            return Number.isFinite(value) ? value : Number.NaN;
           };
           const optionalText = (name: string) => {
             const raw = String(form.get(name) ?? '').trim();
@@ -452,8 +454,8 @@ if (isReset) {
             show_training_since: form.get('show_training_since') === 'on',
             updated_at: new Date().toISOString(),
           };
-          if (fitnessPayload.height_cm !== null && !Number.isFinite(fitnessPayload.height_cm)) throw new Error('Проверьте рост.');
-          if (fitnessPayload.weight_kg !== null && !Number.isFinite(fitnessPayload.weight_kg)) throw new Error('Проверьте вес.');
+          if (fitnessPayload.height_cm !== null && (!Number.isFinite(fitnessPayload.height_cm) || fitnessPayload.height_cm < 100 || fitnessPayload.height_cm > 250)) throw new Error('Укажите рост от 100 до 250 см.');
+          if (fitnessPayload.weight_kg !== null && (!Number.isFinite(fitnessPayload.weight_kg) || fitnessPayload.weight_kg < 30 || fitnessPayload.weight_kg > 350)) throw new Error('Укажите вес от 30 до 350 кг.');
           const fitnessResult = await supabase.from('profile_fitness_private').upsert(fitnessPayload, { onConflict: 'user_id' });
           if (fitnessResult.error) throw fitnessResult.error;
 
