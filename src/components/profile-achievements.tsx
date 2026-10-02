@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '@/lib/supabase';
 
 type AchievementDefinition = {
@@ -47,6 +48,12 @@ export default function ProfileAchievements({ profileId }: { profileId: string }
   const [items, setItems] = useState<AchievementItem[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -82,9 +89,16 @@ export default function ProfileAchievements({ profileId }: { profileId: string }
 
   useEffect(() => {
     if (!open) return;
-    const closeOnScroll = () => setOpen(false);
-    window.addEventListener('scroll', closeOnScroll, { passive: true });
-    return () => window.removeEventListener('scroll', closeOnScroll);
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKey);
+    };
   }, [open]);
 
   const unlocked = useMemo(
@@ -129,53 +143,64 @@ export default function ProfileAchievements({ profileId }: { profileId: string }
       <span className="achievement-preview-count">{unlocked.length}</span>
     </button>
 
-    <aside className={`achievements-drawer ${open ? 'open' : ''}`} aria-hidden={!open}>
-      <div className="achievements-drawer-head">
-        <div>
-          <p className="eyebrow">TEMPO ACHIEVEMENTS</p>
-          <strong>Достижения</strong>
+    {mounted && createPortal(<>
+      <button
+        type="button"
+        className={`achievements-backdrop ${open ? 'open' : ''}`}
+        aria-label="Закрыть достижения"
+        tabIndex={open ? 0 : -1}
+        onClick={() => setOpen(false)}
+      />
+      <aside className={`achievements-drawer ${open ? 'open' : ''}`} aria-hidden={!open}>
+        <div className="achievements-drawer-head">
+          <div>
+            <p className="eyebrow">TEMPO ACHIEVEMENTS</p>
+            <strong>Достижения</strong>
+          </div>
+          <button type="button" onClick={() => setOpen(false)} aria-label="Закрыть достижения">×</button>
         </div>
-        <button type="button" onClick={() => setOpen(false)} aria-label="Закрыть достижения">×</button>
-      </div>
 
-      <div className="achievements-progress">
-        <div>
-          <strong>{unlocked.length}</strong>
-          <span>получено</span>
+        <div className="achievements-progress">
+          <div>
+            <strong>{unlocked.length}</strong>
+            <span>получено</span>
+          </div>
+          <div>
+            <strong>{items.length}</strong>
+            <span>всего</span>
+          </div>
+          <div>
+            <strong>{items.length ? Math.round((unlocked.length / items.length) * 100) : 0}%</strong>
+            <span>прогресс</span>
+          </div>
         </div>
-        <div>
-          <strong>{items.length}</strong>
-          <span>всего</span>
-        </div>
-        <div>
-          <strong>{items.length ? Math.round((unlocked.length / items.length) * 100) : 0}%</strong>
-          <span>прогресс</span>
-        </div>
-      </div>
 
-      {(Object.keys(grouped) as Array<keyof typeof grouped>).map(category => <section className="achievement-group" key={category}>
-        <div className="achievement-group-title">
-          <span>{categoryLabel[category]}</span>
-          <small>{grouped[category].filter(item => item.unlocked).length}/{grouped[category].length}</small>
-        </div>
-        <div className="achievement-list">
-          {grouped[category].map(item => <article
-            key={item.id}
-            className={`achievement-card rarity-${item.rarity} ${item.unlocked ? 'unlocked' : 'locked'}`}
-          >
-            <div className="achievement-medal" aria-hidden="true">{item.icon}</div>
-            <div className="achievement-copy">
-              <div>
-                <strong>{item.title}</strong>
-                <span>{rarityLabel[item.rarity]}</span>
-              </div>
-              <p>{item.description}</p>
-              {item.unlocked_at && <small>Получено {new Date(item.unlocked_at).toLocaleDateString('ru-RU')}</small>}
+        <div className="achievements-content">
+          {(Object.keys(grouped) as Array<keyof typeof grouped>).map(category => <section className="achievement-group" key={category}>
+            <div className="achievement-group-title">
+              <span>{categoryLabel[category]}</span>
+              <small>{grouped[category].filter(item => item.unlocked).length}/{grouped[category].length}</small>
             </div>
-            {item.unlocked && <b className="achievement-check" aria-label="Получено">✓</b>}
-          </article>)}
+            <div className="achievement-list">
+              {grouped[category].map(item => <article
+                key={item.id}
+                className={`achievement-card rarity-${item.rarity} ${item.unlocked ? 'unlocked' : 'locked'}`}
+              >
+                <div className="achievement-medal" aria-hidden="true">{item.icon}</div>
+                <div className="achievement-copy">
+                  <div>
+                    <strong>{item.title}</strong>
+                    <span>{rarityLabel[item.rarity]}</span>
+                  </div>
+                  <p>{item.description}</p>
+                  {item.unlocked_at && <small>Получено {new Date(item.unlocked_at).toLocaleDateString('ru-RU')}</small>}
+                </div>
+                {item.unlocked && <b className="achievement-check" aria-label="Получено">✓</b>}
+              </article>)}
+            </div>
+          </section>)}
         </div>
-      </section>)}
-    </aside>
+      </aside>
+    </>, document.body)}
   </>;
 }
