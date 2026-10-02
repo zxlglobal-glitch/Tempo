@@ -1,6 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '@/lib/supabase';
 
 export type WorkoutProfileStats = {
@@ -152,6 +154,58 @@ function VisibilityToggle({ name, defaultChecked, label = 'Показывать 
   </span>;
 }
 
+
+export function ProfileFitnessSummary({ profileId, viewerId }: { profileId: string; viewerId?: string }) {
+  const [fitness, setFitness] = useState<FitnessRow | null>(null);
+  const [loading, setLoading] = useState(true);
+  const own = Boolean(viewerId && profileId === viewerId);
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      if (!supabase || !profileId) { if (active) setLoading(false); return; }
+      const source = own ? 'profile_fitness_private' : 'profile_fitness_public';
+      const fields = own
+        ? 'user_id,height_cm,weight_kg,birth_date,sex,goal,level,training_since,show_height,show_weight,show_age,show_sex,show_goal,show_level,show_training_since'
+        : 'user_id,height_cm,weight_kg,age,sex,goal,level,training_since';
+      const { data } = await supabase.from(source).select(fields).eq('user_id', profileId).maybeSingle();
+      if (!active) return;
+      setFitness((data as FitnessRow | null) ?? null);
+      setLoading(false);
+    }
+    void load();
+    return () => { active = false; };
+  }, [profileId, own]);
+
+  if (loading) return null;
+
+  const age = own ? yearsSince(fitness?.birth_date) : fitness?.age ?? null;
+  const metrics: Array<{ label:string; value:string }> = [];
+  if (fitness?.height_cm != null) metrics.push({ label:'Рост', value:`${fitness.height_cm} см` });
+  if (fitness?.weight_kg != null) metrics.push({ label:'Вес', value:`${fitness.weight_kg} кг` });
+  if (age !== null) metrics.push({ label:'Возраст', value:`${age}` });
+  if (fitness?.sex && fitness.sex !== 'prefer_not') metrics.push({ label:'Пол', value:sexLabels[fitness.sex] ?? fitness.sex });
+
+  const details: string[] = [];
+  if (fitness?.goal) details.push(goalLabels[fitness.goal] ?? fitness.goal);
+  if (fitness?.level) details.push(levelLabels[fitness.level] ?? fitness.level);
+
+  if (!metrics.length && !details.length) {
+    return own ? <Link className="profile-fitness-empty-link" href="/profile/edit">＋ Добавить параметры формы</Link> : null;
+  }
+
+  return <section className="profile-fitness-summary" aria-label="Параметры формы">
+    <div className="profile-fitness-summary-head">
+      <span>ФОРМА</span>
+      {own && <small>ваши параметры</small>}
+    </div>
+    {metrics.length > 0 && <div className="profile-fitness-summary-metrics">
+      {metrics.map(metric => <span key={metric.label}><small>{metric.label}</small><strong>{metric.value}</strong></span>)}
+    </div>}
+    {details.length > 0 && <p>{details.join(' · ')}</p>}
+  </section>;
+}
+
 export function ProfileFitnessStats({ profileId, viewerId, workoutStats }: {
   profileId: string;
   viewerId?: string;
@@ -159,12 +213,12 @@ export function ProfileFitnessStats({ profileId, viewerId, workoutStats }: {
 }) {
   const [fitness, setFitness] = useState<FitnessRow | null>(null);
   const [history, setHistory] = useState<WeightPoint[]>([]);
-  const own = profileId === viewerId;
+  const own = Boolean(viewerId && profileId === viewerId);
 
   useEffect(() => {
     let active = true;
     async function load() {
-      if (!supabase || !profileId || !viewerId) { if (active) setFitness(null); return; }
+      if (!supabase || !profileId) { if (active) setFitness(null); return; }
       const source = own ? 'profile_fitness_private' : 'profile_fitness_public';
       const fields = own
         ? 'user_id,height_cm,weight_kg,birth_date,sex,goal,level,training_since,show_height,show_weight,show_age,show_sex,show_goal,show_level,show_training_since'
@@ -262,6 +316,60 @@ export function ProfileFitnessStats({ profileId, viewerId, workoutStats }: {
       </div>
     </section>}
   </div>;
+}
+
+
+export function ProfileStatsPanel({ open, onClose, profileId, viewerId, workoutStats }: {
+  open: boolean;
+  onClose: () => void;
+  profileId: string;
+  viewerId?: string;
+  workoutStats: WorkoutProfileStats | null;
+}) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open, onClose]);
+
+  if (!mounted) return null;
+
+  return createPortal(<>
+    <button
+      type="button"
+      className={`profile-stats-backdrop ${open ? 'open' : ''}`}
+      aria-label="Закрыть статистику"
+      tabIndex={open ? 0 : -1}
+      onClick={onClose}
+    />
+    <aside className={`profile-stats-drawer ${open ? 'open' : ''}`} aria-hidden={!open}>
+      <div className="profile-stats-drawer-head">
+        <div>
+          <p className="eyebrow">TEMPO PROFILE</p>
+          <strong>Статистика</strong>
+        </div>
+        <button type="button" onClick={onClose} aria-label="Закрыть статистику">×</button>
+      </div>
+      <div className="profile-stats-scroll">
+        <ProfileFitnessStats profileId={profileId} viewerId={viewerId} workoutStats={workoutStats} />
+      </div>
+    </aside>
+  </>, document.body);
 }
 
 function Metric({ value, label }: { value: string | number; label: string }) {
