@@ -669,3 +669,164 @@ body{overflow-x:hidden}
   .comment-edit-footer{align-items:flex-start;flex-direction:column}
   .comment-edit-footer>div{width:100%;justify-content:flex-end}
 }
+
+
+/* Restored standalone workout statistics drawer */
+.profile-stats-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:988;
+  border:0;
+  background:rgba(22,30,27,.16);
+  backdrop-filter:blur(2px);
+  -webkit-backdrop-filter:blur(2px);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .18s ease;
+}
+.profile-stats-backdrop.open{opacity:1;pointer-events:auto}
+.profile-stats-drawer.profile-stats-drawer-modern{
+  position:fixed;
+  right:24px;
+  top:24px;
+  bottom:24px;
+  left:auto;
+  z-index:989;
+  width:min(440px,calc(100vw - 48px));
+  height:auto;
+  max-height:none;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  padding:18px;
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:#fff;
+  box-shadow:0 24px 70px rgba(31,43,38,.22);
+  transform:translateX(calc(100% + 48px));
+  opacity:0;
+  pointer-events:none;
+  transition:transform .24s ease,opacity .18s ease;
+}
+.profile-stats-drawer.profile-stats-drawer-modern.open{
+  transform:translateX(0);
+  opacity:1;
+  pointer-events:auto;
+}
+.profile-stats-drawer-modern .profile-stats-drawer-head{
+  flex:0 0 auto;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:0;
+  padding:0 0 14px;
+  border-bottom:1px solid var(--line);
+}
+.profile-stats-drawer-modern .profile-stats-drawer-head .eyebrow{margin:0 0 3px}
+.profile-stats-drawer-modern .profile-stats-drawer-head strong{
+  font-size:20px;
+  letter-spacing:0;
+  text-transform:none;
+  color:var(--ink);
+}
+.profile-stats-drawer-modern .profile-stats-drawer-head button{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:36px;
+  height:36px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#fafbf8;
+  color:var(--muted);
+  font-size:22px;
+  cursor:pointer;
+}
+.profile-stats-scroll{
+  min-height:0;
+  overflow:auto;
+  padding-right:2px;
+}
+.tempo-stats-section{padding:17px 0 2px}
+.tempo-stats-label{
+  margin:0 0 12px;
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.18em;
+  color:var(--muted);
+}
+.tempo-stats-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+.tempo-stats-metric{
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-end;
+  min-height:72px;
+  padding:11px 12px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:rgba(250,251,248,.82);
+}
+.tempo-stats-metric strong{
+  font-size:18px;
+  line-height:1.05;
+  overflow-wrap:anywhere;
+}
+.tempo-stats-metric small{
+  margin-top:6px;
+  color:var(--muted);
+  font-size:9px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+}
+.tempo-stats-activity{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-top:9px;
+  padding:10px 11px;
+  border-radius:11px;
+  background:#f3f6f0;
+  font-size:10px;
+  color:var(--muted);
+}
+.tempo-stats-activity strong{color:var(--ink)}
+.tempo-stats-activity .positive{color:#477148}
+.tempo-stats-activity .negative{color:#9a5a5a}
+
+@media(max-width:700px){
+  .profile-stats-backdrop{background:rgba(22,30,27,.24)}
+  .profile-stats-drawer.profile-stats-drawer-modern{
+    inset:0;
+    width:100%;
+    height:100dvh;
+    max-height:none;
+    padding:0;
+    border:0;
+    border-radius:0;
+    background:#f7f8f4;
+    transform:translateY(100%);
+  }
+  .profile-stats-drawer.profile-stats-drawer-modern.open{transform:translateY(0)}
+  .profile-stats-drawer-modern .profile-stats-drawer-head{
+    position:sticky;
+    top:0;
+    z-index:2;
+    padding:16px 18px 14px;
+    background:rgba(255,255,255,.96);
+    backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+  }
+  .profile-stats-scroll{
+    padding:8px 14px calc(24px + env(safe-area-inset-bottom));
+    overflow:auto;
+  }
+  .tempo-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tempo-stats-activity{align-items:flex-start;flex-direction:column}
+  .profile-stats-toggle{top:auto;bottom:14px;right:0;transform:none;height:46px}
+}
