@@ -33,12 +33,14 @@ export function ProfileStatsPanel({
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const onScroll = () => {
+      if (window.matchMedia('(max-width: 700px)').matches) onClose();
+    };
     window.addEventListener('keydown', onKey);
+    window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
-      document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', onScroll);
     };
   }, [open, onClose]);
 
