@@ -39,7 +39,6 @@ export function ProfileStatsPanel({
     window.addEventListener('keydown', onKey);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
-      document.removeEventListener('pointerdown', onOutsidePointer);
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('scroll', onScroll);
     };
