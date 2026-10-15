@@ -850,3 +850,21 @@ body{overflow-x:hidden}
   .profile-stats-drawer.profile-stats-drawer-modern.open{transform:translateY(0) scale(1)}
   .profile-stats-scroll{overscroll-behavior:contain}
 }
+
+/* Compact liker avatars and accessible profile popover */
+.workout-likes-wrap{position:relative;display:flex;align-items:center;gap:6px;min-width:0}
+.workout-likers-trigger{display:inline-flex;align-items:center;gap:7px;padding:3px 6px 3px 0;min-height:34px;border:0;background:transparent;color:var(--muted);cursor:pointer}
+.workout-likers-avatars{display:flex;align-items:center;padding-left:5px}
+.workout-liker-avatar{display:flex;width:25px;height:25px;margin-left:-5px;border:2px solid #fff;border-radius:50%;overflow:hidden;background:#edf2ea}
+.workout-liker-avatar .avatar{width:100%;height:100%;min-width:0;min-height:0;object-fit:cover;border-radius:50%;font-size:10px}
+.workout-likers-count{font-size:11px;font-weight:600}
+.workout-likers-popover{position:absolute;z-index:35;left:0;bottom:calc(100% + 10px);width:min(290px,calc(100vw - 44px));max-height:310px;display:flex;flex-direction:column;overflow:hidden;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 42px rgba(31,43,38,.19)}
+.workout-likers-title{padding:13px 15px 10px;font-size:12px;font-weight:700;border-bottom:1px solid var(--line)}
+.workout-likers-list{overflow-y:auto;padding:5px}
+.workout-liker-row{display:flex;align-items:center;gap:10px;padding:8px 9px;text-decoration:none;border-radius:9px;color:var(--ink)}
+.workout-liker-row:hover{background:#f4f7f2}
+.workout-liker-row>.avatar{flex:0 0 35px;width:35px;height:35px;object-fit:cover;border-radius:50%}
+.workout-liker-row>span:last-child{display:flex;flex-direction:column;gap:2px;min-width:0}
+.workout-liker-row strong,.workout-liker-row small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.workout-liker-row strong{font-size:12px}
+.workout-liker-row small{font-size:10px;color:var(--muted)}
