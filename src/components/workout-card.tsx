@@ -21,6 +21,9 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
   const [photoIndex, setPhotoIndex] = useState<number | null>(null);
   const [reactions, setReactions] = useState<Record<string, number>>({});
   const [ownReaction, setOwnReaction] = useState<string | null>(null);
+  const [likeProfiles, setLikeProfiles] = useState<Profile[]>([]);
+  const [likesOpen, setLikesOpen] = useState(false);
+  const likesRef = useRef<HTMLDivElement>(null);
   const [saved, setSaved] = useState(false);
   const [pinned, setPinned] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -43,12 +46,42 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
         if (userId && row.user_id === userId) mine = row.reaction;
       }
       setReactions(map); setOwnReaction(mine);
+      const likerIds = Array.from(new Set((reactionRows.data ?? []).map(row => row.user_id as string)));
+      if (likerIds.length) {
+        const { data: people, error: peopleError } = await supabase!.from('profiles').select(profileFields).in('id', likerIds);
+        if (active) {
+          if (peopleError) setLikeProfiles([]);
+          else {
+            const byId = new Map((people ?? []).map(person => [person.id, person as Profile]));
+            setLikeProfiles(likerIds.map(id => byId.get(id)).filter((person): person is Profile => Boolean(person)));
+          }
+        }
+      } else if (active) {
+        setLikeProfiles([]);
+        setLikesOpen(false);
+      }
       if (!saveRow.error) setSaved(Boolean(saveRow.data));
       if (!pinRow.error) setPinned(pinRow.data?.pinned_workout_id === workout.id);
     }
     void loadExtras();
     return () => { active = false; };
   }, [workout.id, userId, owner, revision]);
+
+  useEffect(() => {
+    if (!likesOpen) return;
+    const dismiss = (event: PointerEvent) => {
+      if (event.target instanceof Node && !likesRef.current?.contains(event.target)) setLikesOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setLikesOpen(false);
+    };
+    document.addEventListener('pointerdown', dismiss);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', dismiss);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [likesOpen]);
 
   useEffect(() => {
     let active = true;
@@ -177,9 +210,24 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
       {!detail && <Link href={`/workouts/${workout.id}`}>Открыть тренировку →</Link>}
     </footer>
     <div className="workout-action-bar">
-      <button type="button" className={`compact-action-button ${ownReaction ? 'active' : ''}`} onClick={() => void toggleLike()} disabled={!userId || busy} aria-pressed={Boolean(ownReaction)} aria-label={ownReaction ? 'Убрать лайк' : 'Поставить лайк'} title={ownReaction ? 'Убрать лайк' : 'Нравится'}>
-        <span>{ownReaction ? '❤️' : '♡'}</span><b>{Object.values(reactions).reduce((sum, value) => sum + value, 0) || ''}</b>
-      </button>
+      <div className="workout-likes-wrap" ref={likesRef}>
+        <button type="button" className={`compact-action-button ${ownReaction ? 'active' : ''}`} onClick={() => void toggleLike()} disabled={!userId || busy} aria-pressed={Boolean(ownReaction)} aria-label={ownReaction ? 'Убрать лайк' : 'Поставить лайк'} title={ownReaction ? 'Убрать лайк' : 'Нравится'}>
+          <span>{ownReaction ? '❤️' : '♡'}</span>
+        </button>
+        {likeProfiles.length > 0 && <button type="button" className="workout-likers-trigger" onClick={() => setLikesOpen(value => !value)} aria-expanded={likesOpen} aria-label="Посмотреть, кто поставил лайк">
+          <span className="workout-likers-avatars">{likeProfiles.slice(0, 3).map(profile => <span className="workout-liker-avatar" key={profile.id}><ProfileAvatar profile={profile} /></span>)}</span>
+          <span className="workout-likers-count">{Object.values(reactions).reduce((sum, value) => sum + value, 0)}</span>
+        </button>}
+        {likesOpen && likeProfiles.length > 0 && <div className="workout-likers-popover">
+          <div className="workout-likers-title">Нравится · {likeProfiles.length}</div>
+          <div className="workout-likers-list">
+            {likeProfiles.map(profile => <Link key={profile.id} href={`/people/${profile.id}`} className="workout-liker-row" onClick={() => setLikesOpen(false)}>
+              <ProfileAvatar profile={profile} />
+              <span><strong>{displayName(profile)}</strong><small>@{profile.username}</small></span>
+            </Link>)}
+          </div>
+        </div>}
+      </div>
       <Link className="compact-action-button" href={`/workouts/${workout.id}#comments`} aria-label="Комментарии" title="Комментарии">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg><b>{counts?.comments ?? ''}</b>
       </Link>
