@@ -23,7 +23,6 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
   const [ownReaction, setOwnReaction] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pinned, setPinned] = useState(false);
-  const [reactionOpen, setReactionOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const locked = useRef(false);
   const owner = Boolean(userId && workout.user_id === userId);
@@ -85,15 +84,15 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
   }, [photoIndex, workout.photos.length]);
 
 
-  async function setReaction(reaction: string) {
+  async function toggleLike() {
     if (!supabase || !userId || busy) return;
     setBusy(true); setError('');
     try {
-      if (ownReaction === reaction) {
+      if (ownReaction) {
         const { error } = await supabase.from('workout_reactions').delete().eq('workout_id', workout.id).eq('user_id', userId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('workout_reactions').upsert({ workout_id: workout.id, user_id: userId, reaction }, { onConflict: 'workout_id,user_id' });
+        const { error } = await supabase.from('workout_reactions').upsert({ workout_id: workout.id, user_id: userId, reaction: '❤️' }, { onConflict: 'workout_id,user_id' });
         if (error) throw error;
       }
       setRevision(value => value + 1);
@@ -178,14 +177,9 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
       {!detail && <Link href={`/workouts/${workout.id}`}>Открыть тренировку →</Link>}
     </footer>
     <div className="workout-action-bar">
-      <div className="compact-reaction-wrap">
-        <button type="button" className={`compact-action-button ${ownReaction ? 'active' : ''}`} onClick={() => setReactionOpen(value => !value)} aria-expanded={reactionOpen} aria-label="Реакция">
-          <span>{ownReaction || '♡'}</span><b>{Object.values(reactions).reduce((sum,value)=>sum+value,0) || ''}</b>
-        </button>
-        {reactionOpen && <div className="compact-reaction-popover">
-          {(['❤️','🔥','💪','👏'] as const).map(reaction => <button key={reaction} type="button" className={ownReaction === reaction ? 'selected' : ''} disabled={!userId || busy} onClick={() => { void setReaction(reaction); setReactionOpen(false); }}>{reaction}<small>{reactions[reaction] ?? 0}</small></button>)}
-        </div>}
-      </div>
+      <button type="button" className={`compact-action-button ${ownReaction ? 'active' : ''}`} onClick={() => void toggleLike()} disabled={!userId || busy} aria-pressed={Boolean(ownReaction)} aria-label={ownReaction ? 'Убрать лайк' : 'Поставить лайк'} title={ownReaction ? 'Убрать лайк' : 'Нравится'}>
+        <span>{ownReaction ? '❤️' : '♡'}</span><b>{Object.values(reactions).reduce((sum, value) => sum + value, 0) || ''}</b>
+      </button>
       <Link className="compact-action-button" href={`/workouts/${workout.id}#comments`} aria-label="Комментарии" title="Комментарии">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg><b>{counts?.comments ?? ''}</b>
       </Link>
