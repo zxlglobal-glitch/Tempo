@@ -389,7 +389,7 @@ if (isReset) {
         if (path === '/register') {
           const username = String(form.get('username') ?? '').trim().replace(/^@+/, '').toLowerCase();
           if (!/^[a-z0-9_]{3,24}$/.test(username)) throw new Error('Логин должен содержать 3–24 символа: латинские буквы, цифры или _.');
-          const { data: existing, error: usernameError } = await supabase.from('profiles').select('id').eq('username', username).maybeSingle();
+          const { data: existing, error: usernameError } = await supabase.rpc('tempo_username_taken', { candidate: username });
           if (usernameError) throw usernameError;
           if (existing) throw new Error('Этот @логин уже занят. Выберите другой.');
           const result = await supabase.auth.signUp({
