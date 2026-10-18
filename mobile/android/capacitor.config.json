@@ -1,0 +1,12 @@
+{
+  "appId": "app.tempoarea.mobile",
+  "appName": "TEMPO",
+  "webDir": "www",
+  "server": {
+    "url": "https://tempo-fitness-yeuw.netlify.app",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}
