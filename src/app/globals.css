@@ -885,3 +885,6 @@ body{overflow-x:hidden}
   .hero-action-row .tempo-hero-logo-svg{width:108px}
 }
 .photo-lightbox{touch-action:pan-y}
+
+@media(min-width:701px){.hero-action-row .hero-art{position:absolute;right:42px;top:50%;transform:translateY(-50%);margin:0}}
+@media(max-width:700px){.hero-action-row .hero-art{position:static;transform:none}}
