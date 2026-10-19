@@ -189,7 +189,7 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
     <p className="bio">{workout.body}</p>
     {workout.photos.length > 0 && <div className="workout-media-block">
       <div className="gallery">{workout.photos.map((path, index) => <button type="button" className="gallery-item" key={path} onClick={() => setPhotoIndex(index)} aria-label={`Открыть фото ${index + 1} из ${workout.photos.length}`}>
-        <img src={photoUrl(path)} alt={`Фото тренировки «${workout.title}», ${index + 1}`} loading="lazy" />
+        <img src={photoUrl(path)} alt={`Фото тренировки «${workout.title}», ${index + 1}`} loading="lazy" decoding="async" />
       </button>)}</div>
       {workout.photos.length > 1 && <span className="media-count-badge">Фото · {workout.photos.length}</span>}
     </div>}
