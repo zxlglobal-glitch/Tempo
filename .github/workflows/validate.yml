@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - staging-social-upgrades
+      - feature/android-capacitor
   pull_request:
 
 jobs:
