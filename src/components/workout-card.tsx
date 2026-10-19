@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { supabase, photoUrl, displayName, profileFields, type Profile, type Workout } from '@/lib/supabase';
+import { supabase, photoUrl, displayName, type Profile, type Workout } from '@/lib/supabase';
 import { deleteWorkoutAndPhotos } from '@/lib/workout-mutations';
 import { loadReactions } from '@/lib/reaction-batch';
+import { loadLikerProfiles } from '@/lib/liker-profile-batch';
 import { errorMessage, socialError } from '@/lib/social';
 import ProfileAvatar from './profile-avatar';
 import WorkoutComments from './workout-comments';
@@ -49,13 +50,11 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
       setReactions(map); setOwnReaction(mine);
       const likerIds = Array.from(new Set((reactionRows.data ?? []).map(row => row.user_id as string)));
       if (likerIds.length) {
-        const { data: people, error: peopleError } = await supabase!.from('profiles').select(profileFields).in('id', likerIds);
-        if (active) {
-          if (peopleError) setLikeProfiles([]);
-          else {
-            const byId = new Map((people ?? []).map(person => [person.id, person as Profile]));
-            setLikeProfiles(likerIds.map(id => byId.get(id)).filter((person): person is Profile => Boolean(person)));
-          }
+        try {
+          const people = await loadLikerProfiles(likerIds);
+          if (active) setLikeProfiles(people);
+        } catch {
+          if (active) setLikeProfiles([]);
         }
       } else if (active) {
         setLikeProfiles([]);
