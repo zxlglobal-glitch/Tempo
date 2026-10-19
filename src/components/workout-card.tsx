@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { supabase, photoUrl, displayName, profileFields, type Profile, type Workout } from '@/lib/supabase';
 import { deleteWorkoutAndPhotos } from '@/lib/workout-mutations';
+import { loadReactions } from '@/lib/reaction-batch';
 import { errorMessage, socialError } from '@/lib/social';
 import ProfileAvatar from './profile-avatar';
 import WorkoutComments from './workout-comments';
@@ -34,7 +35,7 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
     let active = true;
     async function loadExtras() {
       const [reactionRows, saveRow, pinRow] = await Promise.all([
-        supabase!.from('workout_reactions').select('user_id, reaction').eq('workout_id', workout.id),
+        loadReactions(workout.id).then(data => ({ data, error: null })).catch(error => ({ data: null, error })),
         userId ? supabase!.from('workout_saves').select('workout_id').eq('workout_id', workout.id).eq('user_id', userId).maybeSingle() : Promise.resolve({ data: null, error: null }),
         owner ? supabase!.from('profiles').select('pinned_workout_id').eq('id', userId!).maybeSingle() : Promise.resolve({ data: null, error: null }),
       ]);
