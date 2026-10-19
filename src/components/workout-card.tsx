@@ -19,6 +19,7 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [photoIndex, setPhotoIndex] = useState<number | null>(null);
+  const photoTouchStart = useRef<{ x: number; y: number } | null>(null);
   const [reactions, setReactions] = useState<Record<string, number>>({});
   const [ownReaction, setOwnReaction] = useState<string | null>(null);
   const [likeProfiles, setLikeProfiles] = useState<Profile[]>([]);
@@ -197,7 +198,9 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
       <video className="workout-video" controls preload="metadata" playsInline src={photoUrl(path)} aria-label={`Видео тренировки ${index + 1}`} />
       <span className="video-badge"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 8 5-8 5V7Z"/></svg> Видео {workout.videos.length > 1 ? `${index+1}/${workout.videos.length}` : ''}</span>
     </div>)}</div>}
-    {photoIndex !== null && workout.photos[photoIndex] && <div className="photo-lightbox" role="dialog" aria-modal="true" aria-label="Просмотр фото" onClick={() => setPhotoIndex(null)}>
+    {photoIndex !== null && workout.photos[photoIndex] && <div className="photo-lightbox" role="dialog" aria-modal="true" aria-label="Просмотр фото" onClick={() => setPhotoIndex(null)}
+      onTouchStart={event => { const touch = event.touches[0]; photoTouchStart.current = touch ? { x: touch.clientX, y: touch.clientY } : null; }}
+      onTouchEnd={event => { const start = photoTouchStart.current; photoTouchStart.current = null; const end = event.changedTouches[0]; if (!start || !end || workout.photos.length < 2) return; const dx = end.clientX - start.x; const dy = end.clientY - start.y; if (Math.abs(dx) < 45 || Math.abs(dx) <= Math.abs(dy) * 1.2) return; setPhotoIndex(index => index === null ? null : (index + (dx < 0 ? 1 : -1) + workout.photos.length) % workout.photos.length); }}>
       <button type="button" className="photo-lightbox-close" aria-label="Закрыть фото" onClick={() => setPhotoIndex(null)}>×</button>
       {workout.photos.length > 1 && <button type="button" className="photo-lightbox-nav photo-lightbox-prev" aria-label="Предыдущее фото" onClick={event => { event.stopPropagation(); setPhotoIndex(index => index === null ? null : (index - 1 + workout.photos.length) % workout.photos.length); }}>‹</button>}
       <div className="photo-lightbox-content" onClick={event => event.stopPropagation()}>
