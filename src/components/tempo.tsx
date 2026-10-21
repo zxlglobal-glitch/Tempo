@@ -80,6 +80,7 @@ export default function Tempo() {
   const [profileStats, setProfileStats] = useState<(WorkoutProfileStats & { pinned:{id:string;title:string}|null }) | null>(null);
   const [profileStatsOpen, setProfileStatsOpen] = useState(false);
   const feedSentinel = useRef<HTMLDivElement | null>(null);
+  const feedCache = useRef<Map<string, { at: number; workouts: Workout[]; warning: string }>>(new Map());
   useEffect(() => {
     if (!profileStatsOpen) return;
     const closeOnScroll = () => setProfileStatsOpen(false);
@@ -129,7 +130,7 @@ export default function Tempo() {
       .subscribe();
     window.addEventListener('focus', refresh);
     return () => { active = false; window.removeEventListener('focus', refresh); void db.removeChannel(channel); };
-  }, [user?.id, path]);
+  }, [user?.id]);
   useEffect(() => {
     if (!supabase || !user) { setUnreadMessages(0); return; }
     const db = supabase;
@@ -150,7 +151,7 @@ export default function Tempo() {
       .subscribe();
     window.addEventListener('focus', refresh);
     return () => { active = false; window.removeEventListener('focus', refresh); void db.removeChannel(channel); };
-  }, [user?.id, path]);
+  }, [user?.id]);
   useEffect(() => {
     setMessage(''); if (!supabase) return;
     let active = true; const db = supabase;
@@ -168,8 +169,20 @@ export default function Tempo() {
           }
         }
         if (isAuth || isEdit || isNew || isNotifications || isMessages || isPeopleSearch || isSettings || workoutId || followListKind) return;
+        // Кешируем повторный просмотр той же ленты на 45 секунд.
+        // revision входит в ключ, чтобы после действий загружать свежие данные.
+        const cacheKey = JSON.stringify([user?.id ?? null, path, profileId, category, limit, feedMode, isSaved, revision]);
+        const cached = feedCache.current.get(cacheKey);
+        if (cached && Date.now() - cached.at < 45_000) {
+          if (active) { setWorkouts(cached.workouts); setFeedWarning(cached.warning); }
+          return;
+        }
         const result = await loadWorkoutFeed(db, { includeProfiles: Boolean(user), profileId, category, limit, userId: user?.id, followingOnly: path === '/' && feedMode === 'following', savedOnly: isSaved });
-        if (active) { setWorkouts(result.workouts); setFeedWarning(result.warning); }
+        if (active) {
+          if (feedCache.current.size >= 12) feedCache.current.clear();
+          feedCache.current.set(cacheKey, { at: Date.now(), workouts: result.workouts, warning: result.warning });
+          setWorkouts(result.workouts); setFeedWarning(result.warning);
+        }
       } catch (e) { if (active) setFeedError(describeQueryError(e)); }
       finally { if (active) setLoading(false); }
     }
