@@ -100,7 +100,7 @@ export default function MessagesCenter({
         .from('direct_messages')
         .select('id, sender_id, receiver_id, body, created_at, read_at, reply_to_id, edited_at, deleted_at, image_path, image_paths')
         .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: false })
         .limit(500);
       if (error) throw error;
 
@@ -111,7 +111,7 @@ export default function MessagesCenter({
         .eq('user_id', userId);
       if (hiddenError) throw hiddenError;
       const hiddenIds = new Set((hiddenRows ?? []).map(row => row.message_id));
-      const rows = allRows.filter(row => !hiddenIds.has(row.id));
+      const rows = allRows.filter(row => !hiddenIds.has(row.id)).reverse();
       const ids = [...new Set(rows.flatMap(row => [row.sender_id, row.receiver_id]).filter(id => id !== userId))];
       if (peerId && !ids.includes(peerId)) ids.push(peerId);
 
@@ -159,22 +159,34 @@ export default function MessagesCenter({
         }
       }
 
-      const nextImageUrls: Record<string,string[]> = {};
-      for (const row of rows) {
-        const paths = row.image_paths?.length ? row.image_paths : row.image_path ? [row.image_path] : [];
-        if (!paths.length) continue;
-        const urls: string[] = [];
-        for (const path of paths) {
-          const { data: signed, error: signedError } = await supabase.storage.from('message-media').createSignedUrl(path, 3600);
-          if (!signedError && signed?.signedUrl) urls.push(signed.signedUrl);
-        }
+      const nextImageUrls: Record<string, string[]> = {};
+      const mediaByMessage = rows.map(row => ({
+        id: row.id,
+        paths: row.image_paths?.length ? row.image_paths : row.image_path ? [row.image_path] : [],
+      })).filter(row => row.paths.length);
+      const allPaths = Array.from(new Set(mediaByMessage.flatMap(row => row.paths)));
+      const batches: string[][] = [];
+      for (let i = 0; i < allPaths.length; i += 100) batches.push(allPaths.slice(i, i + 100));
+      const pinsPromise = supabase.from('direct_message_pins').select('message_id').eq('user_id', userId);
+      const signedUrls = new Map<string, string>();
+      // Limit concurrency to avoid flooding Storage for large histories.
+      for (let i = 0; i < batches.length; i += 3) {
+        const results = await Promise.all(batches.slice(i, i + 3).map(paths =>
+          supabase!.storage.from('message-media').createSignedUrls(paths, 3600)
+        ));
+        results.forEach((result, batchIndex) => {
+          if (result.error) return;
+          const paths = batches[i + batchIndex];
+          (result.data ?? []).forEach((signed, index) => {
+            if (signed.signedUrl) signedUrls.set(paths[index], signed.signedUrl);
+          });
+        });
+      }
+      for (const row of mediaByMessage) {
+        const urls = row.paths.map(path => signedUrls.get(path)).filter((url): url is string => Boolean(url));
         if (urls.length) nextImageUrls[row.id] = urls;
       }
-
-      const { data: pins, error: pinsError } = await supabase
-        .from('direct_message_pins')
-        .select('message_id')
-        .eq('user_id', userId);
+      const { data: pins, error: pinsError } = await pinsPromise;
       if (pinsError) throw pinsError;
 
       setMessages(rows.map(row => ({ ...row, image_paths: row.image_paths ?? [] })));
