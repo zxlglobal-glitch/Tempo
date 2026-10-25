@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check workout statistics and calendar dates
+        run: node --test tests/workout-insights.mjs
+
       - name: Typecheck
         run: pnpm typecheck
 
