@@ -1,4 +1,5 @@
-﻿import { createClient } from '@supabase/supabase-js';
+import { prepareWorkoutMedia, workoutMediaType } from './workout-photos';
+import { createClient } from '@supabase/supabase-js';
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 export const supabase = url && key ? createClient(url, key) : null;
@@ -45,14 +46,28 @@ export function validateWorkoutMedia(file: File) {
 
 export async function uploadWorkoutMedia(file: File, userId: string) {
   if (!supabase) throw new Error('Подключите Supabase.');
-  validateWorkoutMedia(file);
+  const prepared = await prepareWorkoutMedia(file);
+  const type = workoutMediaType(prepared);
   const extensions: Record<string,string> = {
     'image/jpeg':'jpg','image/png':'png','image/webp':'webp',
     'video/mp4':'mp4','video/webm':'webm','video/quicktime':'mov',
   };
-  const path = `${userId}/${crypto.randomUUID()}.${extensions[file.type]}`;
-  const { error } = await supabase.storage.from('photos').upload(path, file, { contentType:file.type });
-  if (error) throw error;
+  if (!extensions[type]) throw new Error('Неподдерживаемый формат файла.');
+  const path = `${userId}/${crypto.randomUUID()}.${extensions[type]}`;
+  const attempt = async () => supabase!.storage.from('photos').upload(path, prepared, {
+    contentType: type, cacheControl: '3600', upsert: false,
+  });
+  let result = await attempt();
+  // Retry temporary connection errors, but never authorization/format/size errors.
+  if (result.error && /network|fetch|timeout|connection|502|503|504/i.test(result.error.message)) {
+    await new Promise(resolve => setTimeout(resolve, 700));
+    result = await attempt();
+  }
+  if (result.error) {
+    if (/size|large|413/i.test(result.error.message)) throw new Error('Фото слишком большое для загрузки.');
+    if (/row.level.security|permission|unauthorized|403/i.test(result.error.message)) throw new Error('Нет доступа к хранилищу. Войдите в аккаунт заново.');
+    throw result.error;
+  }
   return path;
 }
 
