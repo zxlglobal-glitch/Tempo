@@ -453,6 +453,7 @@ if (isReset) {
           if (!(categories as readonly string[]).includes(selectedCategory)) throw new Error('Выберите категорию из предложенного списка.');
           if (!Number.isFinite(duration) || duration < 1 || duration > 1440) throw new Error('Укажите длительность от 1 до 1440 минут.');
           await publishWorkoutPhotos(selectedPhotos, {
+            onProgress: (completed, total) => setUploadProgress(total ? `Загружено файлов: ${completed}/${total}` : ''),
             upload: file => uploadWorkoutMedia(file, current.id),
             insert: async media => {
               const { error } = await supabase!.from('workouts').insert({ user_id: current.id, title, body, category: selectedCategory, duration, photos: media.photos, videos: media.videos });
