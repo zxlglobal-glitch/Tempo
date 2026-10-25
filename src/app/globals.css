@@ -900,7 +900,7 @@ body{overflow-x:hidden}
 .workout-calendar-controls button:hover{background:#e6efe8}
 .workout-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;max-width:420px;margin:16px auto 18px}
 .workout-calendar-weekday{text-align:center;font-size:.77rem;color:#79837e;font-weight:600}
-.workout-calendar-day{display:flex;align-items:center;justify-content:center;box-sizing:border-box;aspect-ratio:1;width:min(100%,44px);max-height:44px;margin:auto;padding:0;border:1px solid transparent;border-radius:11px;background:#f0f0eb;color:#29443c;font:500 .88rem/1 inherit}
+.workout-calendar-day{display:flex;align-items:center;justify-content:center;box-sizing:border-box;aspect-ratio:1;width:min(100%,44px);max-height:44px;margin:auto;padding:0;border:1px solid transparent;border-radius:11px;background:#f0f0eb;color:#29443c;font-weight:500;font-size:.88rem;line-height:1;font-family:inherit}
 .workout-calendar-day.trained{background:linear-gradient(135deg,#357552,#699879);color:white;font-weight:700;cursor:pointer;transition:filter .14s ease,transform .14s ease,box-shadow .14s ease}
 .workout-calendar-day.trained:hover{filter:brightness(1.06);transform:translateY(-1px)}
 .workout-calendar-day.trained:focus-visible{outline:2px solid #244f3b;outline-offset:3px}
