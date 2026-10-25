@@ -15,6 +15,7 @@ export default function WorkoutEditor({ workout, userId }: { workout: Workout; u
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [uploadProgress, setUploadProgress] = useState('');
   const locked = useRef(false);
 
   if (workout.user_id !== userId) return <p className="notice">Редактировать можно только свои тренировки.</p>;
@@ -24,7 +25,7 @@ export default function WorkoutEditor({ workout, userId }: { workout: Workout; u
     if (!supabase || locked.current) return;
     const db = supabase;
     const form = new FormData(event.currentTarget);
-    locked.current = true; setBusy(true); setError('');
+    locked.current = true; setBusy(true); setError(''); setUploadProgress('');
     const uploaded: { path: string; video: boolean }[] = [];
     try {
       const { data, error: authError } = await db.auth.getUser();
@@ -35,6 +36,7 @@ export default function WorkoutEditor({ workout, userId }: { workout: Workout; u
       if (retainedVideos.length + files.filter(isWorkoutVideo).length > 2) throw new Error('В тренировке может быть не больше 2 видео.');
 
       for (const file of files) {
+        setUploadProgress(`Загружаем файлы: ${uploaded.length + 1}/${files.length}`);
         uploaded.push({ path: await uploadWorkoutMedia(file, userId), video: isWorkoutVideo(file) });
       }
 
@@ -63,7 +65,7 @@ export default function WorkoutEditor({ workout, userId }: { workout: Workout; u
       if (uploaded.length) await db.storage.from('photos').remove(uploaded.map(item => item.path));
       setError(errorMessage(error));
     } finally {
-      locked.current = false; setBusy(false);
+      locked.current = false; setBusy(false); setUploadProgress('');
     }
   }
 
@@ -93,6 +95,7 @@ export default function WorkoutEditor({ workout, userId }: { workout: Workout; u
         existingCount={retainedPhotos.length}
         existingVideoCount={retainedVideos.length}
       />
+      {uploadProgress && <p className="photo-count" role="status">{uploadProgress}</p>}
       <button className="primary" disabled={busy}>{busy ? 'Сохраняем…' : 'Сохранить изменения'}</button>
     </fieldset></form>
     <Link className="underlink" href={`/workouts/${workout.id}`}>Отменить</Link>
