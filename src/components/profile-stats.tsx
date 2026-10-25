@@ -5,11 +5,9 @@ import { createPortal } from 'react-dom';
 
 export type WorkoutProfileStats = {
   count: number;
-  minutes: number;
+  last7: number;
+  last30: number;
   favorite: string;
-  weeklyRate: number;
-  streakWeeks: number;
-  monthChangePct: number | null;
 };
 
 export function ProfileStatsPanel({
@@ -67,18 +65,10 @@ export function ProfileStatsPanel({
         <section className="tempo-stats-section">
           <p className="tempo-stats-label">ТРЕНИРОВКИ</p>
           <div className="tempo-stats-grid">
-            <Metric value={workoutStats?.count ?? '—'} label="тренировки" />
-            <Metric value={workoutStats?.minutes ?? '—'} label="минут" />
+            <Metric value={workoutStats?.count ?? '—'} label="всего тренировок" />
+            <Metric value={workoutStats?.last7 ?? '—'} label="за 7 дней" />
+            <Metric value={workoutStats?.last30 ?? '—'} label="за 30 дней" />
             <Metric value={workoutStats?.favorite ?? '—'} label="чаще всего" />
-            <Metric value={workoutStats ? workoutStats.weeklyRate.toFixed(1) : '—'} label="в неделю" />
-          </div>
-
-          <div className="tempo-stats-activity">
-            <span><strong>🔥 {workoutStats?.streakWeeks ?? 0}</strong> недель в движении</span>
-            {workoutStats?.monthChangePct !== null && workoutStats?.monthChangePct !== undefined &&
-              <span className={workoutStats.monthChangePct >= 0 ? 'positive' : 'negative'}>
-                {workoutStats.monthChangePct >= 0 ? '↗' : '↘'} {Math.abs(workoutStats.monthChangePct)}% за 30 дней
-              </span>}
           </div>
         </section>
       </div>
