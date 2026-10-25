@@ -14,6 +14,7 @@ import AvatarCropper from '@/components/avatar-cropper';
 import SettingsCenter from '@/components/settings-center';
 import ReportButton from '@/components/report-button';
 import { ProfileStatsPanel, type WorkoutProfileStats } from '@/components/profile-stats';
+import { getWorkoutCounts } from '@/lib/workout-insights';
 import { publishWorkoutPhotos } from '@/lib/workout-photos';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
@@ -196,49 +197,12 @@ export default function Tempo() {
     let active = true;
     async function loadProfileStats() {
       const [rows, pin] = await Promise.all([
-        supabase!.from('workouts').select('id,title,category,duration,created_at').eq('user_id', profileId),
+        supabase!.from('workouts').select('id,title,category,created_at').eq('user_id', profileId),
         supabase!.from('profiles').select('pinned_workout_id').eq('id', profileId).maybeSingle(),
       ]);
       if (rows.error || !active) return;
       const list = rows.data ?? [];
-      const counts = new Map<string,number>();
-      let minutes = 0;
-      for (const row of list) { minutes += row.duration ?? 0; counts.set(row.category, (counts.get(row.category) ?? 0)+1); }
-      const favorite = [...counts.entries()].sort((a,b)=>b[1]-a[1])[0]?.[0] ?? '—';
-
-      const now = new Date();
-      const dayMs = 24 * 60 * 60 * 1000;
-      const last56 = list.filter(row => now.getTime() - new Date(row.created_at).getTime() <= 56 * dayMs).length;
-      const weeklyRate = Math.round((last56 / 8) * 10) / 10;
-      const last30 = list.filter(row => {
-        const age = now.getTime() - new Date(row.created_at).getTime();
-        return age >= 0 && age <= 30 * dayMs;
-      }).length;
-      const previous30 = list.filter(row => {
-        const age = now.getTime() - new Date(row.created_at).getTime();
-        return age > 30 * dayMs && age <= 60 * dayMs;
-      }).length;
-      const monthChangePct = previous30 > 0
-        ? Math.round(((last30 - previous30) / previous30) * 100)
-        : last30 > 0 ? 100 : null;
-
-      const monday = new Date(now);
-      const weekday = (monday.getDay() + 6) % 7;
-      monday.setHours(0,0,0,0);
-      monday.setDate(monday.getDate() - weekday);
-      const activeWeeks = new Set(list.map(row => {
-        const date = new Date(row.created_at);
-        date.setHours(0,0,0,0);
-        const day = (date.getDay() + 6) % 7;
-        date.setDate(date.getDate() - day);
-        return date.toISOString().slice(0,10);
-      }));
-      let streakWeeks = 0;
-      const cursor = new Date(monday);
-      while (activeWeeks.has(cursor.toISOString().slice(0,10))) {
-        streakWeeks += 1;
-        cursor.setDate(cursor.getDate() - 7);
-      }
+      const summary = getWorkoutCounts(list);
 
       let pinned = null as {id:string;title:string}|null;
       const pinId = pin.data?.pinned_workout_id as string | null | undefined;
@@ -246,7 +210,7 @@ export default function Tempo() {
         const found = list.find(row => row.id === pinId);
         if (found) pinned = { id: found.id, title: found.title };
       }
-      if (active) setProfileStats({ count:list.length, minutes, favorite, weeklyRate, streakWeeks, monthChangePct, pinned });
+      if (active) setProfileStats({ ...summary, pinned });
     }
     void loadProfileStats();
     return () => { active=false; };
