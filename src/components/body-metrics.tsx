@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { createPortal } from 'react-dom';
 import { supabase } from '@/lib/supabase';
 import './body-metrics.css';
 
@@ -44,13 +43,13 @@ function Trend({entries,unit}:{entries:Reading[];unit:string}) {
 
 export default function BodyMetrics({profileId,viewerId}:{profileId:string;viewerId:string|null}) {
   const own=!!viewerId && viewerId===profileId;
-  const [open,setOpen]=useState(false),[detail,setDetail]=useState<Key|null>(null);
+  const [detail,setDetail]=useState<Key|null>(null);
   const [readings,setReadings]=useState<Reading[]>([]);
   const [sex,setSex]=useState<Sex>({sex:null,sex_visible:false});
   const [visibility,setVisibility]=useState<Record<Key,boolean>>(empty);
   const [busy,setBusy]=useState(false),[loading,setLoading]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
   const [metric,setMetric]=useState<Key>('weight'),[value,setValue]=useState(''),[measuredOn,setMeasuredOn]=useState(today);
-  const close=()=>{setDetail(null);setOpen(false);};
+  const closeChart=()=>setDetail(null);
   const refresh=useCallback(async()=>{
     if(!supabase||!viewerId)return;
     setLoading(true);setError('');
@@ -65,16 +64,16 @@ export default function BodyMetrics({profileId,viewerId}:{profileId:string;viewe
       if(own){const next=empty();for(const row of v?.data||[]){if(row.metric_key in next)next[row.metric_key as Key]=!!row.visible;}setVisibility(next);}
     } catch(e){setError(errText(e));} finally{setLoading(false);}
   },[profileId,viewerId,own]);
-  useEffect(()=>{if(open)void refresh();},[open,refresh]);
-  useEffect(()=>{close();},[profileId]);
+  useEffect(()=>{void refresh();},[refresh]);
+  useEffect(()=>{setDetail(null);},[profileId]);
   useEffect(()=>{
-    if(!open)return;
-    const scroll=()=>close();
-    const key=(e:KeyboardEvent)=>{if(e.key==='Escape')close();};
-    window.addEventListener('scroll',scroll,{capture:true,passive:true});
+    if(!detail)return;
+    const dismiss=()=>setDetail(null);
+    const key=(e:KeyboardEvent)=>{if(e.key==='Escape')dismiss();};
+    window.addEventListener('scroll',dismiss,{capture:true,passive:true});
     window.addEventListener('keydown',key);
-    return()=>{window.removeEventListener('scroll',scroll,true);window.removeEventListener('keydown',key);};
-  },[open]);
+    return()=>{window.removeEventListener('scroll',dismiss,true);window.removeEventListener('keydown',key);};
+  },[detail]);
   const latest=useMemo(()=>{const found={} as Partial<Record<Key,Reading>>;for(const r of readings)if(!found[r.metric_key])found[r.metric_key]=r;return found;},[readings]);
   const current=items.find(x=>x.key===metric)!;
   const selected=items.find(x=>x.key===detail);
@@ -103,14 +102,8 @@ export default function BodyMetrics({profileId,viewerId}:{profileId:string;viewe
     setBusy(true);const {error:failure}=await supabase.from('tempo_body_measurements').delete().eq('id',id).eq('user_id',profileId);
     if(failure)setError(failure.message);else await refresh();setBusy(false);
   }
-  return <>
-    <button type="button" className="bm-trigger" aria-label="Моя форма" title="Моя форма" aria-expanded={open} onClick={()=>{setOpen(!open);setNotice('');}}>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5v14M17 5v14M5 8h4M5 16h4M15 8h4M15 16h4M9 12h6"/></svg>
-    </button>
-    {open&&typeof document!=='undefined'&&createPortal(<>
-      <div className="bm-mask" onClick={close}/>
-      <section className="bm-dialog" role="dialog" aria-modal="true" aria-label={own?'Моя форма':'Физические показатели'}>
-        <div className="bm-top"><div><small>TEMPO / ПРОФИЛЬ</small><h2>{own?'Моя форма':'Показатели'}</h2></div><button className="bm-x" aria-label="Закрыть" onClick={close}>×</button></div>
+  return <section className="bm-page card" aria-label={own?'Моя форма':'Физические показатели'}>
+    <div className="bm-top"><div><small>TEMPO / ПРОФИЛЬ</small><h1>{own?'Моя форма':'Физические показатели'}</h1></div><a className="bm-back" href={`/people/${profileId}`}>← Профиль</a></div>
         <p className="bm-muted">{own?'Личная история измерений':'Открытые измерения пользователя'}</p>
         {!viewerId&&<p className="bm-muted">Войдите для просмотра данных</p>}
         {loading&&<p className="bm-muted">Загрузка…</p>}
@@ -145,7 +138,6 @@ export default function BodyMetrics({profileId,viewerId}:{profileId:string;viewe
             </form>
           </>}
         </>}
-      </section>
       {detail&&selected&&<div className="bm-chart-mask" onMouseDown={()=>setDetail(null)}>
         <section className="bm-chart-dialog" role="dialog" aria-modal="true" aria-label={'История: '+selected.label} onMouseDown={e=>e.stopPropagation()}>
           <div className="bm-top"><div><small>ИСТОРИЯ ИЗМЕНЕНИЙ</small><h2>{selected.label}</h2></div><button className="bm-x" aria-label="Закрыть график" onClick={()=>setDetail(null)}>×</button></div>
@@ -153,6 +145,5 @@ export default function BodyMetrics({profileId,viewerId}:{profileId:string;viewe
           <div className="bm-history">{selectedRows.slice(0,30).map(r=><div key={r.id}><span>{dateText(r.measured_on)}</span><strong>{Number(r.value).toLocaleString('ru-RU')} {selected.unit}</strong>{own&&<button disabled={busy} onClick={()=>void remove(r.id)} aria-label="Удалить замер">×</button>}</div>)}</div>
         </section>
       </div>}
-    </>,document.body)}
-  </>;
+  </section>;
 }

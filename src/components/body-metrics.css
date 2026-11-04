@@ -21,3 +21,36 @@
 .bm-trend svg{display:block;width:100%;max-height:175px}.bm-between{display:flex;justify-content:space-between;gap:8px}.bm-history{margin-top:14px;max-height:225px;overflow-y:auto}
 .bm-history>div{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #eef0eb;font-size:11px}.bm-history strong{margin-left:auto}.bm-history button{border:0;background:transparent;color:#77807a;font-size:20px}
 @media(max-width:700px){.bm-trigger{width:31px;height:41px;top:calc(50% + 45px)}.bm-dialog{left:12px;right:12px;top:auto;bottom:12px;transform:none;width:auto;max-height:83dvh;padding:16px}.bm-grid{gap:7px}.bm-tile{padding:9px}.bm-tile-btn strong{font-size:19px}}
+
+/* Full-size profile body metrics page and independent upper profile shortcut */
+.profile-with-stats .bm-trigger{
+  top:calc(50% - 67px);
+  right:0;
+  width:34px;
+  height:54px;
+  text-decoration:none;
+}
+.bm-trigger{position:absolute;display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-right:0;border-radius:11px 0 0 11px;background:#f5f7f2;color:var(--green);z-index:8}
+.bm-trigger:hover{background:#e8efe3;color:var(--green)}
+.bm-trigger svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round;stroke-linecap:round}
+.bm-page{width:100%;max-width:1080px;margin:0 auto 50px;padding:28px 30px;background:#fbfcf8;color:var(--ink)}
+.bm-page .bm-top h1{font-size:31px;letter-spacing:-.8px;margin:6px 0 10px}
+.bm-page .bm-back{font-size:12px;text-decoration:none;color:var(--green);padding:9px 11px;border:1px solid var(--line);border-radius:9px;white-space:nowrap}
+.bm-page .bm-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.bm-page .bm-tile{padding:17px}
+.bm-page .bm-tile-btn strong{font-size:26px}
+.bm-page .bm-add{margin-top:25px}
+.bm-page .bm-fields{grid-template-columns:repeat(3,minmax(0,1fr))}
+.bm-page .bm-fields label:last-child{grid-column:auto}
+.bm-page .bm-submit{width:auto;min-width:200px}
+@media(max-width:700px){
+  .profile-with-stats .bm-trigger{top:calc(50% - 63px);width:31px;height:46px}
+  .bm-page{padding:22px 15px;margin:0 0 30px}
+  .bm-page .bm-top h1{font-size:27px}
+  .bm-page .bm-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .bm-page .bm-tile{padding:11px}
+  .bm-page .bm-tile-btn strong{font-size:21px}
+  .bm-page .bm-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .bm-page .bm-fields label:last-child{grid-column:span 2}
+  .bm-page .bm-submit{width:100%}
+}
