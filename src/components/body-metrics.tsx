@@ -20,6 +20,7 @@ const items: {key:Key; label:string; unit:string; min:number; max:number}[] = [
 ];
 const options = [{v:'',t:'Не указано'},{v:'male',t:'Мужской'},{v:'female',t:'Женский'},{v:'other',t:'Другой'},{v:'unspecified',t:'Не хочу указывать'}];
 const empty = ():Record<Key,boolean> => Object.fromEntries(items.map(m=>[m.key,false])) as Record<Key,boolean>;
+const blankDraft = ():Record<Key,string> => Object.fromEntries(items.map(m=>[m.key,''])) as Record<Key,string>;
 const today = () => {const n=new Date();return new Date(n.getTime()-n.getTimezoneOffset()*60000).toISOString().slice(0,10);};
 const dateText = (s:string) => new Date(s+'T12:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'short',year:'numeric'});
 const errText = (e:unknown) => e instanceof Error?e.message:String(e);
@@ -48,7 +49,8 @@ export default function BodyMetrics({profileId,viewerId}:{profileId:string;viewe
   const [sex,setSex]=useState<Sex>({sex:null,sex_visible:false});
   const [visibility,setVisibility]=useState<Record<Key,boolean>>(empty);
   const [busy,setBusy]=useState(false),[loading,setLoading]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
-  const [metric,setMetric]=useState<Key>('weight'),[value,setValue]=useState(''),[measuredOn,setMeasuredOn]=useState(today);
+  const [draft,setDraft]=useState<Record<Key,string>>(blankDraft);
+  const [measuredOn,setMeasuredOn]=useState(today);
   const closeChart=()=>setDetail(null);
   const refresh=useCallback(async()=>{
     if(!supabase||!viewerId)return;
@@ -75,17 +77,34 @@ export default function BodyMetrics({profileId,viewerId}:{profileId:string;viewe
     return()=>{window.removeEventListener('scroll',dismiss,true);window.removeEventListener('keydown',key);};
   },[detail]);
   const latest=useMemo(()=>{const found={} as Partial<Record<Key,Reading>>;for(const r of readings)if(!found[r.metric_key])found[r.metric_key]=r;return found;},[readings]);
-  const current=items.find(x=>x.key===metric)!;
   const selected=items.find(x=>x.key===detail);
   const selectedRows=detail?readings.filter(x=>x.metric_key===detail):[];
   async function add(e:FormEvent<HTMLFormElement>){
-    e.preventDefault();if(!supabase||!own||busy)return;
-    const n=Number(value.replace(',','.'));
-    if(!Number.isFinite(n)||n<current.min||n>current.max||!measuredOn||measuredOn>today()){setError('Проверь значение и дату измерения');return;}
-    setBusy(true);setError('');setNotice('');
-    const {error:failure}=await supabase.from('tempo_body_measurements').insert({user_id:profileId,metric_key:metric,value:n,measured_on:measuredOn});
-    if(failure)setError(failure.message);else{setValue('');setNotice('Замер добавлен');await refresh();}
-    setBusy(false);
+    e.preventDefault();
+    if(!supabase||!own||busy)return;
+    setError('');setNotice('');
+    if(!measuredOn||measuredOn>today()){setError('Укажи корректную дату измерений');return;}
+    const rows:{user_id:string;metric_key:Key;value:number;measured_on:string}[]=[];
+    for(const item of items){
+      const raw=draft[item.key].trim();
+      if(!raw)continue;
+      const number=Number(raw.replace(',','.'));
+      if(!Number.isFinite(number)||number<item.min||number>item.max){
+        setError('Проверь значение «'+item.label+'» ('+item.min+'–'+item.max+' '+item.unit+')');
+        return;
+      }
+      rows.push({user_id:profileId,metric_key:item.key,value:number,measured_on:measuredOn});
+    }
+    if(rows.length===0){setError('Заполни хотя бы один показатель');return;}
+    setBusy(true);
+    try {
+      const {error:failure}=await supabase.from('tempo_body_measurements').insert(rows);
+      if(failure)throw failure;
+      setDraft(blankDraft());
+      await refresh();
+      setNotice('Сохранено показателей: '+rows.length);
+    }catch(failure){setError(errText(failure));}
+    finally{setBusy(false);}
   }
   async function saveVisibility(next:Record<Key,boolean>){
     if(!supabase||!own||busy)return;setBusy(true);setError('');
@@ -128,13 +147,22 @@ export default function BodyMetrics({profileId,viewerId}:{profileId:string;viewe
             <div className="bm-privacy"><span>Показать другим:</span><button disabled={busy} onClick={()=>void saveVisibility(Object.fromEntries(items.map(x=>[x.key,true])) as Record<Key,boolean>)}>Все</button><button disabled={busy} onClick={()=>void saveVisibility(empty())}>Никто</button></div>
             <p className="bm-muted">По умолчанию все показатели скрыты. Если открыть показатель, другие зарегистрированные пользователи увидят всю его историю.</p>
             <form className="bm-add" onSubmit={e=>void add(e)}>
-              <h3>Новый замер</h3>
-              <div className="bm-fields">
-                <label>Показатель<select value={metric} onChange={e=>{setMetric(e.target.value as Key);setValue('');}}>{items.map(x=><option key={x.key} value={x.key}>{x.label}</option>)}</select></label>
-                <label>Значение, {current.unit}<input type="number" inputMode="decimal" required step="0.1" min={current.min} max={current.max} value={value} onChange={e=>setValue(e.target.value)}/></label>
-                <label>Дата<input type="date" max={today()} required value={measuredOn} onChange={e=>setMeasuredOn(e.target.value)}/></label>
+              <h3>Записать измерения</h3>
+              <p className="bm-muted">Заполни все изменившиеся показатели и сохрани их одновременно. Пустые поля не добавляются в историю.</p>
+              <div className="bm-date-row">
+                <label htmlFor="bm-measure-date">Дата измерений</label>
+                <input id="bm-measure-date" type="date" max={today()} required value={measuredOn} disabled={busy} onChange={e=>setMeasuredOn(e.target.value)}/>
               </div>
-              <button className="bm-submit" disabled={busy} type="submit">{busy?'Сохраняем…':'＋ Сохранить замер'}</button>
+              <div className="bm-fields">
+                {items.map(item=><label className="bm-field" key={item.key} htmlFor={`bm-field-${item.key}`}>
+                  <span>{item.label} <small>{item.unit}</small></span>
+                  <input id={`bm-field-${item.key}`} type="number" inputMode="decimal" step="0.1" min={item.min} max={item.max}
+                    placeholder={latest[item.key] ? 'Последнее: '+Number(latest[item.key]?.value).toLocaleString('ru-RU') : 'Не указано'}
+                    value={draft[item.key]} disabled={busy}
+                    onChange={e=>setDraft(prev=>({...prev,[item.key]:e.target.value}))}/>
+                </label>)}
+              </div>
+              <button className="bm-submit" disabled={busy||loading} type="submit">{busy?'Сохраняем…':'Сохранить измерения'}</button>
             </form>
           </>}
         </>}
