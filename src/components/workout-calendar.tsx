@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { groupWorkoutsByLocalDay, isLocalToday, localMonthBounds, type CalendarWorkout } from '@/lib/workout-insights';
+import { groupWorkoutsByLocalDay, isLocalToday, localMonthBounds, monthDateBounds, type CalendarWorkout } from '@/lib/workout-insights';
 
 const weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const monthLabel = new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric' });
@@ -28,16 +28,16 @@ export default function WorkoutCalendar({ profileId, revision }: { profileId: st
     setLoading(true);
     setError(false);
     const { start, end } = localMonthBounds(year, monthIndex);
+    const { start: actualStart, end: actualEnd } = monthDateBounds(year, monthIndex);
     async function load() {
       if (!supabase) {
         if (active) { setLoading(false); setError(true); }
         return;
       }
       const { data, error: queryError } = await supabase.from('workouts')
-        .select('id,title,created_at')
+        .select('id,title,created_at,workout_date')
         .eq('user_id', profileId)
-        .gte('created_at', start)
-        .lt('created_at', end)
+        .or('and(workout_date.gte.'+actualStart+',workout_date.lt.'+actualEnd+'),and(workout_date.is.null,created_at.gte.'+start+',created_at.lt.'+end+')')
         .order('created_at', { ascending: false })
         .limit(1000);
       if (!active) return;

@@ -6,10 +6,14 @@ import { useRouter } from 'next/navigation';
 import { supabase, categories, photoUrl, uploadWorkoutMedia, type Workout } from '@/lib/supabase';
 import { isWorkoutVideo, validateWorkoutPhotos } from '@/lib/workout-photos';
 import { errorMessage } from '@/lib/social';
+import { localDateString, validateWorkoutDate } from '@/lib/workout-insights';
 import WorkoutPhotoPicker from './workout-photo-picker';
 
 export default function WorkoutEditor({ workout, userId }: { workout: Workout; userId: string }) {
   const router = useRouter();
+  const publishedDate = localDateString(new Date(workout.created_at));
+  const [chooseWorkoutDate, setChooseWorkoutDate] = useState(Boolean(workout.workout_date && workout.workout_date !== publishedDate));
+  const [workoutDateInput, setWorkoutDateInput] = useState(workout.workout_date || publishedDate);
   const [retainedPhotos, setRetainedPhotos] = useState(workout.photos ?? []);
   const [retainedVideos, setRetainedVideos] = useState(workout.videos ?? []);
   const [files, setFiles] = useState<File[]>([]);
@@ -40,6 +44,7 @@ export default function WorkoutEditor({ workout, userId }: { workout: Workout; u
         uploaded.push({ path: await uploadWorkoutMedia(file, userId), video: isWorkoutVideo(file) });
       }
 
+      const selectedActivityDate = chooseWorkoutDate ? validateWorkoutDate(workoutDateInput) : (workout.workout_date ? publishedDate : null);
       const photos = [...retainedPhotos, ...uploaded.filter(item => !item.video).map(item => item.path)];
       const videos = [...retainedVideos, ...uploaded.filter(item => item.video).map(item => item.path)];
 
@@ -48,6 +53,7 @@ export default function WorkoutEditor({ workout, userId }: { workout: Workout; u
         body: String(form.get('body')).trim(),
         category: String(form.get('category')),
         duration: Number(form.get('duration')),
+        workout_date: selectedActivityDate,
         photos,
         videos,
       }).eq('id', workout.id).eq('user_id', userId).select('id').single();
@@ -76,7 +82,7 @@ export default function WorkoutEditor({ workout, userId }: { workout: Workout; u
       <label>Название<input name="title" required maxLength={120} defaultValue={workout.title} /></label>
       <div className="form-row"><label>Категория<select name="category" defaultValue={workout.category}>{categories.map(category => <option key={category}>{category}</option>)}</select></label>
         <label>Минуты<input name="duration" type="number" min={1} max={1440} required defaultValue={workout.duration} /></label></div>
-      <label>Как всё прошло?<textarea name="body" maxLength={3000} defaultValue={workout.body} /></label>
+      <label>Как всё прошло?<textarea name="body" maxLength={3000} defaultValue={workout.body} /></label><div className="workout-date-field"><label className="workout-date-choice"><input type="checkbox" checked={chooseWorkoutDate} onChange={e=>{setChooseWorkoutDate(e.target.checked);if(e.target.checked&&!workoutDateInput)setWorkoutDateInput(publishedDate);}}/> Выбрать дату тренировки</label>{chooseWorkoutDate&&<label className="workout-date-picker">Когда была тренировка?<input type="date" name="workout_date" value={workoutDateInput} max={localDateString(new Date())} required onChange={e=>setWorkoutDateInput(e.target.value)}/><small>Можно изменить день занятия. Время публикации и позиция в ленте не изменятся.</small></label>}</div>
 
       {retainedPhotos.length > 0 && <><h2>Сохранённые фотографии</h2><div className="photo-previews">{retainedPhotos.map((path, index) => <figure key={path}>
         <img src={photoUrl(path)} alt={`Сохранённое фото ${index + 1}`} />

@@ -24,8 +24,14 @@ create table if not exists public.workouts (
   )),
   duration integer not null check (duration between 1 and 1440),
   photos text[] not null default '{}' check (cardinality(photos) <= 6),
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  workout_date date
 );
+
+-- A separate day of activity; legacy workouts keep NULL and use created_at.
+alter table public.workouts add column if not exists workout_date date;
+create index if not exists workouts_user_workout_date_idx
+  on public.workouts(user_id, workout_date) where workout_date is not null;
 
 create index if not exists workouts_created_idx
   on public.workouts(created_at desc);

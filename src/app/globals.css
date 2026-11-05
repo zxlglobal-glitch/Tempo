@@ -918,3 +918,14 @@ body{overflow-x:hidden}
 .workout-calendar-selected-list a span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .workout-calendar-selected-list a:hover,.workout-calendar-selected-list a:focus-visible{background:#e8f1e8}
 @media(max-width:700px){.workout-calendar{padding:15px;margin:14px 0 20px}.workout-calendar-top{align-items:flex-start;flex-direction:column;gap:10px}.workout-calendar-controls{align-self:stretch}.workout-calendar-grid{gap:4px;margin:14px auto}.workout-calendar-day{width:min(100%,40px);max-height:40px;border-radius:9px;font-size:.84rem}.workout-calendar-footer{gap:8px;font-size:.71rem}}
+
+/* Workout activity date: publication date in feed remains unchanged. */
+.workout-date-field{margin:16px 0 20px;padding:12px 14px;border:1px solid var(--line);border-radius:11px;background:#f9fbf7}
+.workout-date-field .workout-date-choice{display:flex;align-items:center;gap:9px;margin:0;min-width:0;font-size:13px;line-height:1.5;cursor:pointer}
+.workout-date-choice input[type=checkbox]{width:17px;height:17px;flex:0 0 17px;min-width:17px;margin:0;accent-color:var(--green)}
+.workout-date-field .workout-date-picker{display:block;margin:13px 0 0;min-width:0;font-size:12px}
+.workout-date-picker input[type=date]{width:100%;max-width:260px;min-width:0;box-sizing:border-box;font-size:16px}
+.workout-date-picker small{display:block;margin-top:9px;font-size:11px;font-weight:400;line-height:1.5;color:var(--muted)}
+.workout-actual-day{font-size:12px;color:var(--muted);margin:7px 0 14px}
+.workout-actual-day time{color:var(--green);font-weight:600}
+@media(max-width:600px){.workout-date-field{padding:12px}.workout-date-picker input[type=date]{max-width:100%}}

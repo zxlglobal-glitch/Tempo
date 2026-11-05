@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { supabase, photoUrl, displayName, profileFields, type Profile, type Workout } from '@/lib/supabase';
 import { deleteWorkoutAndPhotos } from '@/lib/workout-mutations';
+import { effectiveWorkoutDate } from '@/lib/workout-insights';
 import { errorMessage, socialError } from '@/lib/social';
 import ProfileAvatar from './profile-avatar';
 import WorkoutComments from './workout-comments';
@@ -187,6 +188,7 @@ export default function WorkoutCard({ workout, userId, detail = false, onDeleted
       </div></Link><span className="pill">{workout.category}</span>
     </div>
     {detail ? <h1>{workout.title}</h1> : <h2><Link href={`/workouts/${workout.id}`}>{workout.title}</Link></h2>}
+    {detail&&<p className="workout-actual-day">Дата тренировки: <time dateTime={effectiveWorkoutDate(workout)}>{new Date(effectiveWorkoutDate(workout)+'T12:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})}</time></p>}
     <p className="bio">{workout.body}</p>
     {workout.photos.length > 0 && <div className="workout-media-block">
       <div className="gallery">{workout.photos.map((path, index) => <button type="button" className="gallery-item" key={path} onClick={() => setPhotoIndex(index)} aria-label={`Открыть фото ${index + 1} из ${workout.photos.length}`}>
