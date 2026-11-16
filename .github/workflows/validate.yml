@@ -32,6 +32,9 @@ jobs:
       - name: Check workout statistics and calendar dates
         run: node --test tests/workout-insights.mjs
 
+      - name: Check comment reply threading
+        run: node --test tests/comment-threads.mjs
+
       - name: Typecheck
         run: pnpm typecheck
 

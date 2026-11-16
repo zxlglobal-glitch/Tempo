@@ -929,3 +929,33 @@ body{overflow-x:hidden}
 .workout-actual-day{font-size:12px;color:var(--muted);margin:7px 0 14px}
 .workout-actual-day time{color:var(--green);font-weight:600}
 @media(max-width:600px){.workout-date-field{padding:12px}.workout-date-picker input[type=date]{max-width:100%}}
+
+
+/* Threaded comments: replies immediately follow the parent, never the end of the list. */
+.comments .comment{min-width:0;overflow-wrap:anywhere}
+.comments .comment-reply{margin-left:0;padding-left:12px;border-left:2px solid rgba(36,79,64,.16)}
+.comments .comment-reply-context{padding:5px 8px;margin-bottom:9px;background:#f7f9f5}
+.comments .comment-reply-context p{max-width:100%}
+.comments .comment-composer{margin:12px 0 16px;min-width:0;max-width:100%}
+.comments .comment-composer textarea{min-width:0;max-width:100%;font-size:16px}
+.comment-compose-bottom{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:3px 0 8px}
+.comment-compose-bottom>small{font-size:10px;color:var(--muted)}
+.comment-image-add{position:relative;display:inline-flex!important;align-items:center;gap:7px;width:auto!important;max-width:100%;margin:0!important;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--green);font-size:11px!important;cursor:pointer}
+.comment-image-add:has(input:disabled){opacity:.5;cursor:default}
+.comment-image-add input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.comment-image-previews{display:flex;gap:8px;flex-wrap:wrap;margin:9px 0}
+.comment-image-preview{position:relative;width:80px;height:80px;flex:0 0 80px}
+.comment-image-preview img{width:100%;height:100%;object-fit:cover;border:1px solid var(--line);border-radius:9px}
+.comment-image-preview button{position:absolute;right:-5px;top:-5px;width:23px;height:23px;border:1px solid var(--line);background:#fff;border-radius:50%;color:var(--ink);font-size:16px;line-height:1}
+.comment-image-gallery{display:flex;gap:7px;flex-wrap:wrap;margin:9px 0}
+.comment-image-thumb{width:112px;height:105px;min-width:0;padding:0;border:1px solid var(--line);border-radius:9px;background:#f4f6f2;overflow:hidden}
+.comment-image-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.comment-image-status{font-size:11px;color:var(--muted);margin:6px 0}
+.comment-photo-lightbox{position:fixed;z-index:2100;inset:0;display:flex;align-items:center;justify-content:center;padding:42px 14px;background:rgba(12,21,17,.86);cursor:zoom-out}
+.comment-photo-lightbox>img{max-width:min(100%,1100px);max-height:calc(100dvh - 84px);object-fit:contain;border-radius:10px;cursor:default}
+.comment-photo-close{position:fixed;right:16px;top:14px;width:40px;height:40px;border:0;background:rgba(255,255,255,.17);border-radius:50%;color:white;font-size:26px}
+@media(max-width:700px){
+  .comments .comment-reply{padding-left:9px}
+  .comment-image-thumb{width:83px;height:83px}
+  .comment-image-preview{width:72px;height:72px;flex-basis:72px}
+}
