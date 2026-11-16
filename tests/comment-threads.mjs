@@ -12,7 +12,7 @@ test('late replies are grouped immediately after their parent, not at the bottom
  assert.deepEqual(result.map(x=>x.depth),[0,1,0]);
 });
 test('replies to replies are under their target in chronological order',()=>{
- const result=arrangeCommentThreads([c('root'),c('answer1','root','2026-11-16T13:00:00Z'),c('other'),c('deep','answer1','2026-11-16T14:00:00Z')]);
+ const result=arrangeCommentThreads([c('root'),c('answer1','root','2026-11-16T13:00:00Z'),c('other',null,'2026-11-16T15:00:00Z'),c('deep','answer1','2026-11-16T14:00:00Z')]);
  assert.deepEqual(result.map(x=>x.comment.id),['root','answer1','deep','other']);
 });
 test('deleted parent leaves a harmless top-level comment',()=>{
