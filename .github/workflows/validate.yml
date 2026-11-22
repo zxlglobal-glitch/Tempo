@@ -35,6 +35,9 @@ jobs:
       - name: Check comment reply threading
         run: node --test tests/comment-threads.mjs
 
+      - name: Check exercise entries and summaries
+        run: node --test tests/exercise-entries.mjs
+
       - name: Typecheck
         run: pnpm typecheck
 

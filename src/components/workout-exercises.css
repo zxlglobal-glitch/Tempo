@@ -1,0 +1,101 @@
+/* TEMPO exercise picker and private per-exercise progress. */
+.tempo-exercises-section{margin:14px 0 18px;min-width:0}
+.tempo-ex-add{display:block;width:100%;min-height:46px;border:0;border-radius:11px;background:#e6f1e2;color:#244f40;font-size:14px;font-weight:650;padding:12px;cursor:pointer}
+.tempo-ex-add:hover{background:#dcebd6}
+.tempo-ex-muted{font-size:11px;color:var(--muted);line-height:1.5;margin:8px 0 12px;font-weight:400}
+.tempo-ex-selected{margin:13px 0;padding:0 0 12px}
+.tempo-ex-selected-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px}
+.tempo-ex-selected-head strong{font-size:14px}
+.tempo-ex-selected-head button{background:transparent;border:0;color:var(--green);font-size:12px;font-weight:600;padding:5px}
+.tempo-ex-selected-item{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;background:#fff;padding:11px 10px;margin-bottom:8px;min-width:0}
+.tempo-ex-number{flex:0 0 28px;width:28px;height:28px;border-radius:9px;background:#e8f3e6;color:#244f40;font-weight:700;font-size:12px;display:grid;place-items:center}
+.tempo-ex-selected-main{flex:1;min-width:0;display:grid;gap:4px;text-align:left;background:none;border:0;padding:1px;cursor:pointer;color:var(--ink)}
+.tempo-ex-selected-main strong{font-size:12px;overflow-wrap:anywhere}
+.tempo-ex-selected-main small{font-size:10px;color:var(--muted);line-height:1.4;overflow-wrap:anywhere}
+.tempo-ex-remove{width:27px;height:27px;flex:0 0 27px;border:0;background:transparent;color:#77807a;font-size:21px;border-radius:6px}
+.tempo-ex-summary{background:#f6f8f4;border-radius:10px;padding:10px 12px;border:1px solid #e6ebe3;margin-top:12px}
+.tempo-ex-summary small{font-size:10px;color:var(--green)}
+.tempo-ex-summary p{white-space:pre-wrap;font-size:11px;line-height:1.7;margin:6px 0 0;color:var(--ink)}
+.tempo-ex-overlay{position:fixed;z-index:1300;inset:0;background:rgba(26,39,32,.4);display:flex;align-items:center;justify-content:center;padding:12px}
+.tempo-ex-dialog{width:min(490px,100%);max-height:92dvh;overflow-y:auto;background:#fbfcf9;border:1px solid var(--line);border-radius:17px;padding:21px;box-shadow:0 20px 65px rgba(0,0,0,.17);color:var(--ink);min-width:0}
+.tempo-ex-dialog button{cursor:pointer}
+.tempo-ex-dialog input{min-width:0;box-sizing:border-box}
+.tempo-ex-dialog-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:20px}
+.tempo-ex-dialog-head>div{min-width:0}
+.tempo-ex-dialog-head small,.tempo-ex-page-head small{font-size:9px;color:var(--muted);letter-spacing:1.3px}
+.tempo-ex-dialog-head h2{font-size:23px;line-height:1.23;letter-spacing:-.5px;margin:6px 0 0;overflow-wrap:anywhere}
+.tempo-ex-dialog-head>button{flex:0 0 30px;width:30px;height:30px;border:0;color:var(--muted);font-size:23px;background:transparent}
+.tempo-ex-tabs{display:flex;gap:3px;background:#f0f2ee;padding:3px;border-radius:10px;margin:12px 0}
+.tempo-ex-tabs button{flex:1;min-width:0;border:0;background:transparent;border-radius:8px;padding:10px 7px;color:var(--ink);font-size:12px}
+.tempo-ex-tabs button.selected{background:#e0efdc;color:#244f40;font-weight:700}
+.tempo-ex-search{display:block;width:100%;min-height:42px;background:#fff;border:1px solid var(--line);border-radius:9px;font-size:16px;padding:10px 12px;margin:11px 0}
+.tempo-ex-catalog{max-height:min(43dvh,345px);overflow-y:auto;overscroll-behavior:contain}
+.tempo-ex-catalog-item{display:flex;align-items:center;justify-content:space-between;width:100%;gap:12px;text-align:left;background:transparent;border:0;border-bottom:1px solid var(--line);padding:11px 5px}
+.tempo-ex-catalog-item>span{min-width:0;display:grid;gap:4px}
+.tempo-ex-catalog-item strong{font-size:13px;line-height:1.3;overflow-wrap:anywhere}
+.tempo-ex-catalog-item small{font-size:10px;color:var(--muted)}
+.tempo-ex-catalog-item>b{font-size:22px;color:var(--green);font-weight:400}
+.tempo-ex-create-link{display:block;width:100%;border:1px solid #98b69d;border-radius:10px;color:var(--green);background:#f1f8ed;font-size:12px;padding:12px;margin:17px 0 7px;font-weight:650}
+.tempo-ex-field{display:block;font-size:12px;margin:0}
+.tempo-ex-field input{width:100%;margin:9px 0 0;border:1px solid var(--line);border-radius:9px;background:#fff;padding:12px;font-size:16px}
+.tempo-ex-error{padding:10px;border-radius:9px;background:#fff0ee;color:#ad4343;font-size:12px;line-height:1.5}
+.tempo-ex-last{display:grid;gap:5px;border:1px solid var(--line);border-radius:9px;padding:11px 12px;background:#f2f6ef;margin:0 0 14px}
+.tempo-ex-last small{font-size:10px;color:var(--muted)}
+.tempo-ex-last span{font-size:12px;color:var(--green);font-weight:600;overflow-wrap:anywhere}
+.tempo-ex-count{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0 18px}
+.tempo-ex-count strong{font-size:13px}
+.tempo-ex-counter{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff;align-items:center}
+.tempo-ex-counter button{width:35px;height:35px;border:0;background:transparent;color:var(--green);font-size:20px}
+.tempo-ex-counter span{min-width:32px;text-align:center;font-weight:700;font-size:14px}
+.tempo-ex-sets{width:100%;margin:0 0 12px}
+.tempo-ex-set-head,.tempo-ex-set-row{display:grid;grid-template-columns:50px minmax(0,1fr) minmax(0,1fr);align-items:center;gap:9px;text-align:center}
+.tempo-ex-set-head{font-size:11px;color:var(--muted);padding:0 0 7px}
+.tempo-ex-set-row{border-bottom:1px solid #edf0eb;padding:6px 0}
+.tempo-ex-set-row>span{font-size:13px;color:var(--green);font-weight:700}
+.tempo-ex-set-row input{display:block;width:100%;min-height:40px;margin:0;padding:7px 9px;border-radius:8px;background:#fff;border:1px solid var(--line);font-size:16px;text-align:center;appearance:textfield}
+.tempo-ex-set-row input::-webkit-inner-spin-button,.tempo-ex-set-row input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.tempo-ex-apply{display:grid;gap:10px;margin:12px 0}
+.tempo-ex-apply label{display:flex;align-items:center;gap:9px;margin:0;font-size:11px;font-weight:500;line-height:1.4;cursor:pointer}
+.tempo-ex-apply input{width:16px;height:16px;min-width:16px;flex:0 0 16px;margin:0;accent-color:var(--green)}
+.tempo-ex-history-link{margin:12px 0;display:block;width:100%;text-align:left;background:transparent;border:0;color:var(--green);font-size:12px;font-weight:650}
+.tempo-ex-dialog-actions{display:flex;gap:10px;justify-content:flex-end;align-items:center;margin-top:20px}
+.tempo-ex-dialog-actions button{min-height:41px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:10px 13px;font-size:12px;color:var(--green);font-weight:600}
+.tempo-ex-dialog-actions button.primary{background:var(--green);border-color:var(--green);color:#fff}
+.tempo-ex-history{margin:13px 0}
+.tempo-ex-history h4{font-size:13px;margin:16px 0 7px}
+.tempo-ex-highlight{display:grid;gap:7px;background:#f5f9f2;border:1px solid var(--line);border-radius:10px;padding:12px}
+.tempo-ex-highlight small{font-size:10px;color:var(--muted)}
+.tempo-ex-highlight strong{font-size:12px;line-height:1.6;color:var(--green);overflow-wrap:anywhere}
+.tempo-ex-highlight>span{font-size:11px;color:var(--muted)}
+.tempo-ex-chart svg{width:100%;display:block;height:auto;max-height:200px}
+.tempo-ex-chart-labels{display:flex;justify-content:space-between;gap:8px;color:var(--muted);font-size:10px;margin:0 4px 10px}
+.tempo-ex-history-list{border:1px solid var(--line);border-radius:10px;overflow:hidden;max-height:265px;overflow-y:auto}
+.tempo-ex-history-list>a{display:flex;gap:10px;align-items:center;border-bottom:1px solid var(--line);padding:11px;color:var(--ink);font-size:10px;min-width:0}
+.tempo-ex-history-list a:last-child{border:0}
+.tempo-ex-history-list time{white-space:nowrap;color:var(--muted);flex:0 0 77px}
+.tempo-ex-history-list span{flex:1;min-width:0;overflow-wrap:anywhere}
+.tempo-ex-history-list b{color:var(--green)}
+.tempo-ex-progress-page{max-width:1050px;margin:0 auto 40px;padding:26px;background:#fbfcf9}
+.tempo-ex-page-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+.tempo-ex-page-head h1{font-size:30px;letter-spacing:-.7px;margin:6px 0}
+.tempo-ex-page-head>a,.tempo-ex-progress-back{font-size:12px;color:var(--green);border:1px solid var(--line);padding:9px;border-radius:8px}
+.tempo-ex-progress-layout{display:grid;grid-template-columns:minmax(190px,31%) minmax(0,1fr);gap:18px}
+.tempo-ex-progress-list{position:static!important;width:auto!important;height:auto!important;max-height:570px;overflow-y:auto;display:block;background:transparent!important;border:0!important;padding:0!important}
+.tempo-ex-progress-list input{width:100%;background:#fff;border:1px solid var(--line);padding:11px;border-radius:9px;margin:0 0 10px;font-size:16px}
+.tempo-ex-progress-list button{display:grid;gap:5px;width:100%;text-align:left;border:1px solid transparent;border-radius:9px;background:#fff;padding:12px 10px;margin-bottom:5px;color:var(--ink)}
+.tempo-ex-progress-list button.active{background:#e8f3e5;border-color:#d4e5cf}
+.tempo-ex-progress-list button strong{font-size:12px;font-weight:600}
+.tempo-ex-progress-list button small{font-size:10px;color:var(--muted)}
+.tempo-ex-progress-content{min-width:0}
+.tempo-ex-progress-content h2{font-size:19px;margin:6px 0 13px}
+@media(max-width:700px){
+ .tempo-ex-overlay{align-items:flex-end;padding:0}
+ .tempo-ex-dialog{width:100%;border-radius:18px 18px 0 0;max-height:90dvh;padding:17px 15px calc(17px + env(safe-area-inset-bottom,0px))}
+ .tempo-ex-dialog-head h2{font-size:21px}
+ .tempo-ex-catalog{max-height:39dvh}
+ .tempo-ex-progress-page{padding:17px 12px}
+ .tempo-ex-progress-layout{grid-template-columns:1fr;gap:12px}
+ .tempo-ex-progress-list{display:flex!important;gap:6px;flex-wrap:nowrap;overflow-x:auto;max-height:none;padding-bottom:7px!important}
+ .tempo-ex-progress-list input{min-width:148px;width:148px;flex:0 0 148px}
+ .tempo-ex-progress-list button{min-width:150px;width:150px;flex:0 0 150px}
+}

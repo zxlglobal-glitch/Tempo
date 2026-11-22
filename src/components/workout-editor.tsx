@@ -1,13 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase, categories, photoUrl, uploadWorkoutMedia, type Workout } from '@/lib/supabase';
 import { isWorkoutVideo, validateWorkoutPhotos } from '@/lib/workout-photos';
 import { errorMessage } from '@/lib/social';
 import { localDateString, validateWorkoutDate } from '@/lib/workout-insights';
 import WorkoutPhotoPicker from './workout-photo-picker';
+import WorkoutExercisePicker from './workout-exercises';
+import { extractManualNotes, composeWorkoutBody, exerciseEntries, type ExerciseDraft } from '@/lib/exercise-entries';
 
 export default function WorkoutEditor({ workout, userId }: { workout: Workout; userId: string }) {
   const router = useRouter();
@@ -17,10 +19,37 @@ export default function WorkoutEditor({ workout, userId }: { workout: Workout; u
   const [retainedPhotos, setRetainedPhotos] = useState(workout.photos ?? []);
   const [retainedVideos, setRetainedVideos] = useState(workout.videos ?? []);
   const [files, setFiles] = useState<File[]>([]);
+  const [selectedExercises, setSelectedExercises] = useState<ExerciseDraft[]>([]);
+  const [exercisesReady, setExercisesReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [uploadProgress, setUploadProgress] = useState('');
   const locked = useRef(false);
+  useEffect(()=>{
+    let active=true;
+    async function load(){
+      setExercisesReady(false);
+      if(!supabase)return;
+      const {data,error}=await supabase.from('tempo_workout_exercises')
+        .select('id,exercise_id,exercise_name,sets,position')
+        .eq('workout_id',workout.id).eq('user_id',userId).order('position',{ascending:true});
+      if(!active)return;
+      if(error){setError('Не удалось загрузить упражнения: '+error.message);return;}
+      const items=(data??[]).map(row=>({
+        key:row.id as string,
+        exercise_id:row.exercise_id as string,
+        name:row.exercise_name as string,
+        sets:((row.sets??[]) as {weight_kg:number;reps:number}[]).map(set=>({
+          weight:String(set.weight_kg),reps:String(set.reps)
+        }))
+      }));
+      setSelectedExercises(items);
+      setExercisesReady(true);
+    }
+    void load();
+    return()=>{active=false;};
+  },[workout.id,userId]);
+
 
   if (workout.user_id !== userId) return <p className="notice">Редактировать можно только свои тренировки.</p>;
 
@@ -45,12 +74,15 @@ export default function WorkoutEditor({ workout, userId }: { workout: Workout; u
       }
 
       const selectedActivityDate = chooseWorkoutDate ? validateWorkoutDate(workoutDateInput) : (workout.workout_date ? publishedDate : null);
+      if(!exercisesReady)throw new Error('Дождитесь загрузки упражнений.');
+      const exerciseRows=exerciseEntries(selectedExercises);
+      const combinedBody=composeWorkoutBody(String(form.get('body')??''),selectedExercises);
       const photos = [...retainedPhotos, ...uploaded.filter(item => !item.video).map(item => item.path)];
       const videos = [...retainedVideos, ...uploaded.filter(item => item.video).map(item => item.path)];
 
       const { error } = await db.from('workouts').update({
         title: String(form.get('title')).trim(),
-        body: String(form.get('body')).trim(),
+        body: combinedBody,
         category: String(form.get('category')),
         duration: Number(form.get('duration')),
         workout_date: selectedActivityDate,
@@ -58,6 +90,10 @@ export default function WorkoutEditor({ workout, userId }: { workout: Workout; u
         videos,
       }).eq('id', workout.id).eq('user_id', userId).select('id').single();
       if (error) throw error;
+      const saved=await db.rpc('tempo_save_workout_exercises',{
+        p_workout_id:workout.id,p_entries:exerciseRows
+      });
+      if(saved.error)throw saved.error;
 
       const discarded = [
         ...(workout.photos ?? []).filter(path => !retainedPhotos.includes(path)),
@@ -78,11 +114,12 @@ export default function WorkoutEditor({ workout, userId }: { workout: Workout; u
   return <section className="form-card">
     <p className="eyebrow">ВАШЕ ДВИЖЕНИЕ</p><h1>Редактировать тренировку</h1>
     {error && <p className="notice" role="alert">{error}</p>}
-    <form onSubmit={submit}><fieldset disabled={busy}>
+    <form onSubmit={submit}><fieldset disabled={busy || !exercisesReady}>
       <label>Название<input name="title" required maxLength={120} defaultValue={workout.title} /></label>
       <div className="form-row"><label>Категория<select name="category" defaultValue={workout.category}>{categories.map(category => <option key={category}>{category}</option>)}</select></label>
         <label>Минуты<input name="duration" type="number" min={1} max={1440} required defaultValue={workout.duration} /></label></div>
-      <label>Как всё прошло?<textarea name="body" maxLength={3000} defaultValue={workout.body} /></label><div className="workout-date-field"><label className="workout-date-choice"><input type="checkbox" checked={chooseWorkoutDate} onChange={e=>{setChooseWorkoutDate(e.target.checked);if(e.target.checked&&!workoutDateInput)setWorkoutDateInput(publishedDate);}}/> Выбрать дату тренировки</label>{chooseWorkoutDate&&<label className="workout-date-picker">Когда была тренировка?<input type="date" name="workout_date" value={workoutDateInput} max={localDateString(new Date())} required onChange={e=>setWorkoutDateInput(e.target.value)}/><small>Можно изменить день занятия. Время публикации и позиция в ленте не изменятся.</small></label>}</div>
+      <label>Как всё прошло?<textarea name="body" maxLength={3000} defaultValue={extractManualNotes(workout.body)} /></label>
+      <WorkoutExercisePicker userId={userId} value={selectedExercises} onChange={setSelectedExercises} disabled={busy || !exercisesReady}/><div className="workout-date-field"><label className="workout-date-choice"><input type="checkbox" checked={chooseWorkoutDate} onChange={e=>{setChooseWorkoutDate(e.target.checked);if(e.target.checked&&!workoutDateInput)setWorkoutDateInput(publishedDate);}}/> Выбрать дату тренировки</label>{chooseWorkoutDate&&<label className="workout-date-picker">Когда была тренировка?<input type="date" name="workout_date" value={workoutDateInput} max={localDateString(new Date())} required onChange={e=>setWorkoutDateInput(e.target.value)}/><small>Можно изменить день занятия. Время публикации и позиция в ленте не изменятся.</small></label>}</div>
 
       {retainedPhotos.length > 0 && <><h2>Сохранённые фотографии</h2><div className="photo-previews">{retainedPhotos.map((path, index) => <figure key={path}>
         <img src={photoUrl(path)} alt={`Сохранённое фото ${index + 1}`} />
@@ -102,7 +139,7 @@ export default function WorkoutEditor({ workout, userId }: { workout: Workout; u
         existingVideoCount={retainedVideos.length}
       />
       {uploadProgress && <p className="photo-count" role="status">{uploadProgress}</p>}
-      <button className="primary" disabled={busy}>{busy ? 'Сохраняем…' : 'Сохранить изменения'}</button>
+      <button className="primary" disabled={busy || !exercisesReady}>{busy ? 'Сохраняем…' : exercisesReady ? 'Сохранить изменения' : 'Загрузка упражнений…'}</button>
     </fieldset></form>
     <Link className="underlink" href={`/workouts/${workout.id}`}>Отменить</Link>
   </section>;
