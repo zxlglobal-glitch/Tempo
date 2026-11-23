@@ -1016,6 +1016,8 @@ body{overflow-x:hidden}
     min-height:64px;
     padding:5px max(11px,env(safe-area-inset-right)) 5px max(11px,env(safe-area-inset-left));
     background:#81b5da url('/branding/tempo-winter-compact.svg') left center / 100% 100% no-repeat;
+    background-origin:border-box;
+    background-clip:border-box;
     border:0;
     border-bottom:1px solid #daebf5;
     box-shadow:0 2px 8px rgba(36,92,131,.13);
