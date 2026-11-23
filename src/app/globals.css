@@ -959,3 +959,31 @@ body{overflow-x:hidden}
   .comment-image-thumb{width:83px;height:83px}
   .comment-image-preview{width:72px;height:72px;flex-basis:72px}
 }
+
+
+/* Temporary winter header artwork, with original typography preserved in code. */
+aside .logo.logo-winter{
+  display:block;
+  width:188px;
+  max-width:100%;
+  height:auto;
+  flex:0 0 auto;
+  overflow:hidden;
+  border-radius:9px;
+  line-height:0;
+  font-size:0;
+  letter-spacing:normal;
+}
+aside .logo.logo-winter img{
+  width:100%;
+  height:auto;
+  display:block;
+  aspect-ratio:200/71;
+  object-fit:contain;
+}
+@media(max-width:700px){
+  aside .logo.logo-winter{width:126px;flex-basis:126px;border-radius:7px}
+}
+@media(max-width:360px){
+  aside .logo.logo-winter{width:108px;flex-basis:108px}
+}
