@@ -960,132 +960,100 @@ body{overflow-x:hidden}
   .comment-image-preview{width:72px;height:72px;flex-basis:72px}
 }
 
-
-/* Temporary winter header artwork, with original typography preserved in code. */
-aside .logo.logo-winter{
-  display:block;
-  width:188px;
-  max-width:100%;
-  height:auto;
-  flex:0 0 auto;
-  overflow:hidden;
-  border-radius:9px;
-  line-height:0;
-  font-size:0;
-  letter-spacing:normal;
-}
-aside .logo.logo-winter img{
-  width:100%;
-  height:auto;
-  display:block;
-  aspect-ratio:200/71;
-  object-fit:contain;
-}
-@media(max-width:700px){
-  aside .logo.logo-winter{width:126px;flex-basis:126px;border-radius:7px}
-}
-@media(max-width:360px){
-  aside .logo.logo-winter{width:108px;flex-basis:108px}
-}
-
-
-/* Winter edition: full, continuous snowy header, not a framed logo tile.
-   All overrides are behind .winter-theme, so 'default' restores every old style. */
-.shell.winter-theme aside.winter-header{
-  background:
-    radial-gradient(ellipse 140px 15px at 24% 118px,rgba(250,253,255,.92) 12%,rgba(250,253,255,0) 100%),
-    linear-gradient(to bottom,#89b7da 0px,#acd0e8 83px,#dcecf4 130px,#fff 178px,#fff 100%);
-  border-right-color:#d6e5ef;
-  isolation:isolate;
-}
-.shell.winter-theme aside.winter-header::before{
-  content:"";
-  position:absolute;
-  inset:0 0 auto;
-  height:142px;
-  pointer-events:none;
-  z-index:0;
-  background:
-    radial-gradient(circle,rgba(255,255,255,.87) 0 1px,transparent 1.8px) 8px 12px/53px 39px,
-    radial-gradient(circle,rgba(255,255,255,.74) 0 1px,transparent 2px) 22px 28px/71px 61px,
-    radial-gradient(ellipse 72px 11px at 18% 110px,rgba(255,255,255,.9),transparent),
-    linear-gradient(to bottom,transparent 60%,rgba(255,255,255,.12) 75%,transparent);
-  opacity:.65;
-}
-.shell.winter-theme aside.winter-header>.logo,
-.shell.winter-theme aside.winter-header>nav,
-.shell.winter-theme aside.winter-header>.tagline,
-.shell.winter-theme aside.winter-header>.aside-bottom{
-  position:relative;
-  z-index:1;
-}
-.shell.winter-theme aside.winter-header .logo.logo-winter{
-  overflow:visible;
-  border-radius:0;
-  isolation:isolate;
-}
-.shell.winter-theme aside.winter-header .logo.logo-winter img{
-  /* Feather the photographed sky into the header's matching blue snow scene. */
-  -webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 4%,#000 86%,transparent 100%);
-  mask-image:linear-gradient(90deg,transparent 0%,#000 4%,#000 86%,transparent 100%);
-  border-radius:0;
-}
+/* Approved winter scene: real textured frost and snow across the whole header.
+   Artwork includes the original ice logo; the clickable original element remains
+   in the markup as an accessible link. Switch the branding constant to 'default'
+   to restore the original website header with no winter-specific layout. */
 @media(min-width:701px){
-  .shell.winter-theme .main>header{
-    background:
-      radial-gradient(circle,rgba(255,255,255,.74) 0 1px,transparent 1.7px) 9px 10px/82px 61px,
-      linear-gradient(180deg,#89b7da 0%,#bbd7ea 80%,#e6f1f8 100%);
-    border-bottom-color:#d5e6ef;
-    color:#274b5e;
+  .shell.winter-theme aside.winter-header{
+    background:#fff url('/branding/tempo-winter-scene-sidebar.svg') top left / 100% 150px no-repeat;
+    border-right-color:#d5e6ef;
+    padding-top:17px;
+    isolation:isolate;
   }
-  .shell.winter-theme .main>header>span{color:#3d6c80}
-  .shell.winter-theme .main>header a{color:#244f40}
-  .shell.winter-theme aside.winter-header .tagline{color:#456d82}
+  .shell.winter-theme aside.winter-header .logo.logo-winter{
+    width:188px;max-width:100%;height:69px;flex:0 0 69px;
+    border:0;border-radius:0;overflow:visible;
+    position:relative;z-index:2;
+  }
+  .shell.winter-theme aside.winter-header .logo.logo-winter img{
+    display:block;width:100%;height:100%;opacity:0;
+  }
+  .shell.winter-theme aside.winter-header .tagline{
+    color:#345a70;position:relative;z-index:2;
+    text-shadow:0 1px 2px rgba(255,255,255,.7);
+  }
+  .shell.winter-theme .main>header{
+    background:#8dbbd9 url('/branding/tempo-winter-scene-desktop.svg') center center / 100% 100% no-repeat;
+    border-bottom:1px solid #d2e3ef;
+    color:#284e61;
+  }
+  .shell.winter-theme .main>header>span{color:#2d556a;text-shadow:0 1px 2px #fff}
+  .shell.winter-theme .main>header a,
+  .shell.winter-theme .main>header button{color:#204e56;text-shadow:0 1px 2px #fff}
 }
 @media(max-width:700px){
   .shell.winter-theme aside.winter-header{
-    background:
-      radial-gradient(ellipse 85% 24px at 52% 104%,rgba(247,252,255,.94),transparent 94%),
-      linear-gradient(109deg,#88b7d9 0%,#9dc4e0 40%,#c3dbeb 100%);
-    border-bottom:1px solid #d6e6ef;
+    min-height:116px;
+    height:116px;
+    padding:13px max(11px,env(safe-area-inset-right)) 23px max(11px,env(safe-area-inset-left));
+    background:#7cb3d6 url('/branding/tempo-winter-scene-mobile.svg') center center / 100% 100% no-repeat;
+    border:0;
+    border-bottom:1px solid #e1eef6;
+    box-shadow:0 3px 12px rgba(53,106,140,.10);
     backdrop-filter:none;
     -webkit-backdrop-filter:none;
-    box-shadow:0 2px 7px rgba(85,135,165,.12);
-  }
-  .shell.winter-theme aside.winter-header::before{
-    inset:0;
-    height:auto;
-    background:
-      radial-gradient(circle,rgba(255,255,255,.9) 0 .8px,transparent 1.6px) 8px 9px/54px 41px,
-      radial-gradient(circle,rgba(255,255,255,.8) 0 1px,transparent 2px) 28px 25px/76px 58px,
-      linear-gradient(180deg,transparent 50%,rgba(255,255,255,.24) 100%);
-    opacity:.62;
-  }
-  .shell.winter-theme aside.winter-header::after{
-    content:"";
-    position:absolute;
-    left:0;right:0;bottom:0;
-    height:7px;
-    pointer-events:none;
-    background:linear-gradient(180deg,transparent,rgba(247,251,255,.65));
-    z-index:1;
+    isolation:isolate;
   }
   .shell.winter-theme aside.winter-header .logo.logo-winter{
+    display:block;
+    width:clamp(125px,40vw,245px);
+    flex:0 0 clamp(125px,40vw,245px);
+    height:76px;
+    max-width:none;
+    border:0;
     border-radius:0;
-    min-width:0;
-  }
-  .shell.winter-theme aside.winter-header nav{
+    overflow:visible;
+    font-size:0;
+    line-height:0;
     position:relative;
     z-index:2;
   }
+  .shell.winter-theme aside.winter-header .logo.logo-winter img{
+    display:block;width:100%;height:100%;opacity:0;
+  }
+  .shell.winter-theme aside.winter-header nav{
+    position:relative;z-index:3;min-width:0;flex:0 1 auto;
+    display:flex;align-items:center;gap:2px;
+    margin-left:auto;
+  }
   .shell.winter-theme aside.winter-header nav a{
-    color:#20495f;
-    border:1px solid rgba(255,255,255,.21);
-    background:rgba(245,251,255,.24);
-    border-radius:9px;
+    flex:0 0 auto;min-width:0;padding:7px 5px;
+    border:1px solid rgba(236,250,255,.22);
+    background:rgba(25,80,125,.20);
+    border-radius:10px;
+    color:#fff;
+    box-shadow:0 1px 5px rgba(19,64,104,.10);
+    backdrop-filter:blur(3px);
   }
   .shell.winter-theme aside.winter-header nav a.active{
-    background:rgba(248,253,255,.75);
-    color:#204934;
+    background:rgba(237,250,255,.80);
+    border-color:rgba(255,255,255,.7);
+    color:#214b5f;
+  }
+  .shell.winter-theme aside.winter-header nav .nav-icon,
+  .shell.winter-theme aside.winter-header nav .nav-icon svg{
+    width:21px;height:21px;flex:0 0 21px;
+  }
+}
+@media(max-width:360px){
+  .shell.winter-theme aside.winter-header .logo.logo-winter{
+    width:clamp(111px,37vw,135px);
+    flex-basis:clamp(111px,37vw,135px);
+  }
+  .shell.winter-theme aside.winter-header nav a{padding:6px 3px}
+  .shell.winter-theme aside.winter-header nav .nav-icon,
+  .shell.winter-theme aside.winter-header nav .nav-icon svg{
+    width:19px;height:19px;flex-basis:19px;
   }
 }
