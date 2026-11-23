@@ -965,8 +965,8 @@ body{overflow-x:hidden}
    Scoped to winter so setting TEMPO_LOGO_VARIANT='default' restores the site. */
 @media (min-width:701px){
   .shell.winter-theme aside.winter-header{
-    padding-top:39px;
-    background:#fff url('/branding/tempo-winter-approved.webp') left top / auto 150px no-repeat;
+    padding-top:32px;
+    background:#fff url('/branding/tempo-winter-approved.webp') left top / auto 125px no-repeat;
     border-right-color:#dbe9f3;
   }
   .shell.winter-theme aside.winter-header .logo.logo-winter{
@@ -975,8 +975,8 @@ body{overflow-x:hidden}
     z-index:1;
     width:188px;
     max-width:100%;
-    height:75px;
-    flex:0 0 75px;
+    height:66px;
+    flex:0 0 66px;
     overflow:visible;
     border:0;
     border-radius:0;
@@ -991,7 +991,7 @@ body{overflow-x:hidden}
     opacity:0;
   }
   .shell.winter-theme aside.winter-header .tagline{
-    margin-top:23px;
+    margin-top:8px;
     color:#335e73;
     text-shadow:0 1px 2px rgba(255,255,255,.8);
   }
@@ -1012,10 +1012,10 @@ body{overflow-x:hidden}
 }
 @media (max-width:700px){
   .shell.winter-theme aside.winter-header{
-    height:116px;
-    min-height:116px;
-    padding:13px max(11px,env(safe-area-inset-right)) 20px max(11px,env(safe-area-inset-left));
-    background:#81b5da url('/branding/tempo-winter-approved.webp') left center / 100% 100% no-repeat;
+    height:64px;
+    min-height:64px;
+    padding:5px max(11px,env(safe-area-inset-right)) 5px max(11px,env(safe-area-inset-left));
+    background:#81b5da url('/branding/tempo-winter-compact.svg') left center / 100% 100% no-repeat;
     border:0;
     border-bottom:1px solid #daebf5;
     box-shadow:0 2px 8px rgba(36,92,131,.13);
@@ -1026,9 +1026,9 @@ body{overflow-x:hidden}
     display:block;
     position:relative;
     z-index:2;
-    width:51%;
-    flex:0 0 51%;
-    height:78px;
+    width:134px;
+    flex:0 0 134px;
+    height:54px;
     min-width:0;
     max-width:none;
     margin:0;
@@ -1081,8 +1081,8 @@ body{overflow-x:hidden}
 }
 @media (max-width:360px){
   .shell.winter-theme aside.winter-header .logo.logo-winter{
-    width:51%;
-    flex-basis:51%;
+    width:120px;
+    flex-basis:120px;
   }
   .shell.winter-theme aside.winter-header nav a{padding:6px 3px}
   .shell.winter-theme aside.winter-header nav .nav-icon,
